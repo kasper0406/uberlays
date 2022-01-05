@@ -1,8 +1,9 @@
-use std::sync::mpsc::Receiver;
+use tokio::sync::broadcast::Receiver;
 use std::time::{ Duration, Instant };
 use std::collections::VecDeque;
 
 use skulpin::skia_safe;
+use skulpin::LogicalSize;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater };
 use crate::iracing::{ Update, Telemetry };
@@ -25,31 +26,29 @@ pub struct PlotOverlay {
 }
 
 impl<'a> PlotOverlay {
-    pub fn new(state_receiver: Receiver<Update>) -> Overlay<PlotOverlay> {
-        Overlay {
-            name: String::from("Plot Overlay"),
-            state_receiver,
-            overlay: PlotOverlay {
-                duration: Duration::from_secs(10),
-                plots: vec![
-                    Plot {
-                        measurements: VecDeque::new(),
-                        color: skia_safe::Color4f::new(0.0, 1.0, 0.0, 1.0),
-                        extractor: Box::new(|state| state.throttle as f64),
-                    },
-                    Plot {
-                        measurements: VecDeque::new(),
-                        color: skia_safe::Color4f::new(1.0, 0.0, 0.0, 1.0),
-                        extractor: Box::new(|state| state.r#break as f64),
-                    },
-                ]
-            }
+    pub fn new() -> PlotOverlay {
+        PlotOverlay {
+            duration: Duration::from_secs(10),
+            plots: vec![
+                Plot {
+                    measurements: VecDeque::new(),
+                    color: skia_safe::Color4f::new(0.0, 1.0, 0.0, 1.0),
+                    extractor: Box::new(|state| state.throttle as f64),
+                },
+                Plot {
+                    measurements: VecDeque::new(),
+                    color: skia_safe::Color4f::new(1.0, 0.0, 0.0, 1.0),
+                    extractor: Box::new(|state| state.r#break as f64),
+                },
+            ],
         }
     }
 }
 
+impl Overlay for PlotOverlay {}
+
 impl Drawable for PlotOverlay {
-    fn draw(&self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
+    fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
         canvas.clear(skia_safe::Color::from_argb(100, 255, 255, 255));
 
         let now = Instant::now();

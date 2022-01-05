@@ -1,17 +1,19 @@
-mod plot;
 mod iracing;
 mod overlay;
+mod plot;
+mod head2head;
 
 #[macro_use] extern crate log;
 extern crate env_logger;
 
 use log::Level;
 
-use std::sync::mpsc::{ channel, Receiver, Sender };
 use std::thread;
 use std::time::{ Instant };
 
-use plot::PlotOverlay;
+use tokio::sync::broadcast;
+
+use overlay::Overlays;
 use iracing::{ Update, Telemetry };
 
 fn main() {
@@ -20,7 +22,7 @@ fn main() {
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    let (sender, receiver) = channel();
+    let (sender, receiver) = broadcast::channel(16);
 
     let samples_per_second = 60;
     let data_producer = thread::spawn(move || {
@@ -41,8 +43,8 @@ fn main() {
         }
     });
 
-    let overlay = PlotOverlay::new(receiver);
-    overlay.create_window(800.0, 150.0);
+    let overlays = Overlays::new(receiver);
+    overlays.start_event_loop();
 
     data_producer.join();
 }

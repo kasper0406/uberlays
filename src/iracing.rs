@@ -1,13 +1,13 @@
 use std::time::Instant;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Driver {
     pub name: String,
     pub irating: u32,
     pub safety_rating: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Telemetry {
     pub timestamp: Instant,
     pub throttle: f32,
@@ -17,13 +17,13 @@ pub struct Telemetry {
     pub deltas: Vec<f32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionInfo {
     pub name: String,
     pub drivers: Vec<Driver>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Update {
     Session(SessionInfo),
     Telemetry(Telemetry),
