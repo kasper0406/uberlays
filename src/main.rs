@@ -21,6 +21,9 @@ use tokio::sync::broadcast;
 use overlay::Overlays;
 use iracing::{ Update, Telemetry };
 
+use iracing::data_collector::IracingConnection;
+use iracing::data_collector::IracingConnectionError;
+
 fn main() {
     // Setup logging
     env_logger::Builder::from_default_env()
@@ -52,7 +55,21 @@ fn main() {
             thread::sleep_ms(1000 / samples_per_second);
         } */
 
-        iracing::data_collector::iracing();
+        let mut connection: Option<IracingConnection> = None;
+        loop {
+            match IracingConnection::new() {
+                Ok(new_connection) => {
+                    connection = Some(new_connection);
+                    break;
+                },
+                Err(IracingConnectionError::NotRunning) => {
+                    info!("iRacing not detected. Retrying!");
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+            }
+        }
+
+        info!("Established connection to iRacing");
     });
 
     let overlays = Overlays::new(receiver);
