@@ -6,6 +6,11 @@ mod head2head;
 #[macro_use] extern crate log;
 extern crate env_logger;
 
+use windows::{
+    Win32::Foundation::*,
+    Win32::System::Threading::*,
+};
+
 use log::Level;
 
 use std::thread;
@@ -22,12 +27,17 @@ fn main() {
         .filter_level(log::LevelFilter::Debug)
         .init();
 
+    unsafe {
+        SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+    }
+
     let (sender, receiver) = broadcast::channel(16);
 
     let samples_per_second = 60;
     let data_producer = thread::spawn(move || {
         let start = Instant::now();
         // TODO(knielsen): Terminate this thread!
+        /*
         loop {
             let time = Instant::now();
             sender.send(Update::Telemetry(Telemetry {
@@ -40,7 +50,9 @@ fn main() {
             }));
 
             thread::sleep_ms(1000 / samples_per_second);
-        }
+        } */
+
+        iracing::data_collector::iracing();
     });
 
     let overlays = Overlays::new(receiver);

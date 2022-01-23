@@ -1,3 +1,5 @@
+pub mod data_collector;
+
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
