@@ -1177,7 +1177,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2e69bc36f8ef495c23201b8cb154f196d84b206865758b67b378f37bcfc937"
 dependencies = [
  "rafx-api",
- "rafx-base 0.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rafx-base",
  "rafx-framework",
  "rafx-visibility",
 ]
@@ -1185,6 +1185,8 @@ dependencies = [
 [[package]]
 name = "rafx-api"
 version = "0.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91860167246b7f469030e7793de87b592520cc984bf5ba5baa35ce6045e1f031"
 dependencies = [
  "ash",
  "ash-window",
@@ -1194,23 +1196,12 @@ dependencies = [
  "gpu-allocator",
  "log",
  "profiling",
- "rafx-base 0.0.14",
+ "rafx-base",
  "raw-window-handle 0.3.4",
  "serde",
  "serde_bytes",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "rafx-base"
-version = "0.0.14"
-dependencies = [
- "crossbeam-channel",
- "downcast-rs",
- "fnv",
- "instant",
- "log",
 ]
 
 [[package]]
@@ -1242,7 +1233,7 @@ dependencies = [
  "parking_lot",
  "profiling",
  "rafx-api",
- "rafx-base 0.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rafx-base",
  "rafx-visibility",
  "serde",
  "serde_bytes",
@@ -1497,8 +1488,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1788de1116cd73c63784ec4f2fcf4bb29cd81a4743ab5c2bcf648f5058da7676"
+source = "git+https://github.com/aclysma/skulpin#c5fb3420c07d5014338917fe15436cd780badff8"
 dependencies = [
  "log",
  "skulpin-app-winit",
@@ -1508,8 +1498,7 @@ dependencies = [
 [[package]]
 name = "skulpin-app-winit"
 version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b85fea79f52bc81b6c648de100eff2d20096b59033e7f187bdc92ec30a5176c2"
+source = "git+https://github.com/aclysma/skulpin#c5fb3420c07d5014338917fe15436cd780badff8"
 dependencies = [
  "log",
  "raw-window-handle 0.3.4",
@@ -1520,6 +1509,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer"
 version = "0.14.1"
+source = "git+https://github.com/aclysma/skulpin#c5fb3420c07d5014338917fe15436cd780badff8"
 dependencies = [
  "bincode",
  "lazy_static",
@@ -1527,7 +1517,6 @@ dependencies = [
  "rafx",
  "skia-bindings",
  "skia-safe",
- "uuid",
 ]
 
 [[package]]
@@ -1778,15 +1767,6 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
-]
-
-[[package]]
-name = "uuid"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
-dependencies = [
- "getrandom",
 ]
 
 [[package]]
