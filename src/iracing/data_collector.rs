@@ -15,6 +15,10 @@ use windows::{
 use std::ffi::OsStr;
 use std::ffi::CStr;
 use std::os::windows::ffi::OsStrExt;
+use async_std::task;
+use async_std::task::{Context, Poll};
+use async_std::stream::Stream;
+use async_std::pin::Pin;
 
 const SYNCHRONIZE: u32 = 0x00100000;
 // const FILE_MAP_READ: u32 = 0x4;
@@ -37,7 +41,7 @@ impl PwString {
 }
 
 #[derive(Debug)]
-enum IracingValue {
+pub enum IracingValue {
     Double(f64),
     DoubleVector(Vec<f64>),
     Int(i32),
@@ -52,6 +56,8 @@ pub struct IracingConnection {
     mem_file: HANDLE,
     header: *mut irsdk_header,
     event_file: HANDLE,
+
+    last_seen: i32,
 }
 
 impl Drop for IracingConnection {
@@ -89,13 +95,14 @@ impl IracingConnection {
         info!("The memmap is set up!");
 
         let header = mmap as *mut irsdk_header;
-        
+
         let event_file = unsafe { OpenEventW(SYNCHRONIZE, false, event_filename.pwstr()) };
         drop(event_filename);
         info!("Event handle: {:?}, error: {:?}", event_file, unsafe { GetLastError() });
 
         Ok(IracingConnection {
-            mem_file, header, event_file
+            mem_file, header, event_file,
+            last_seen: 0,
         })
 
         /*
@@ -127,11 +134,11 @@ impl IracingConnection {
                 for i in 0..(unsafe { (*header).numVars } as isize) {
                     let var_headers = (mmap as *const u8).offset((*header).varHeaderOffset as isize) as *mut irsdk_varHeader;
                     let var_header = *((var_headers.offset(i)) as *const irsdk_varHeader) as irsdk_varHeader;
-        
+
                     let name = CStr::from_ptr(var_header.name.as_ptr());
                     let desc = CStr::from_ptr(var_header.desc.as_ptr());
                     let unit = CStr::from_ptr(var_header.unit.as_ptr());
-        
+
                     // info!("Offset: {}", var_header.offset);
                     // info!("Count: {}", var_header.count);
 
@@ -146,7 +153,7 @@ impl IracingConnection {
                     }
 
                     let buffer_ptr = buffer.as_ptr();
-        
+
                     let value_ptr = buffer_ptr.offset(var_header.offset as isize);
                     let value = match var_header.type_ {
                         irsdk_VarType_irsdk_double => IracingValue::Double((*(value_ptr as *const f64)).clone()),
@@ -162,5 +169,31 @@ impl IracingConnection {
                 }
             }
         } */
+    }
+}
+
+impl Stream for IracingConnection {
+    type Item = Vec<IracingValue>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        unsafe {
+            let idx = (*self.header).varBuf.iter().enumerate().max_by_key(|(_, buf)| buf.tickCount).unwrap().0;
+            if (*self.header).varBuf[idx].tickCount <= self.last_seen {
+                // Wait for a new element
+                let waiter = cx.waker().clone();
+                let event_file_clone = self.event_file.clone();
+                task::spawn(async move {
+                    match WaitForSingleObject(event_file_clone, u32::MAX) {
+                        0x0 => waiter.wake(),
+                        0x102 => panic!("TIMEOUT!"),
+                        err => panic!("Some other failure: {}, detailed: {:?}", err, unsafe { GetLastError() })
+                    };
+                });
+
+                Poll::Pending
+            } else {
+                Poll::Ready(Some(vec![IracingValue::Int(42)]))
+            }
+        }
     }
 }

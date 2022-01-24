@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use tokio::sync::broadcast::Receiver;
+use async_std::channel::Receiver;
 
 use skulpin::skia_safe;
 use skulpin::{CoordinateSystemHelper, LogicalSize};

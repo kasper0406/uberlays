@@ -1,4 +1,4 @@
-use tokio::sync::broadcast::Receiver;
+use async_std::channel::Receiver;
 use std::time::{ Duration, Instant };
 use std::collections::VecDeque;
 

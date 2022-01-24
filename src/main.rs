@@ -16,7 +16,7 @@ use log::Level;
 use std::thread;
 use std::time::{ Instant };
 
-use tokio::sync::broadcast;
+use async_std::channel::Receiver;
 
 use overlay::Overlays;
 use iracing::{ Update, Telemetry };
@@ -34,7 +34,7 @@ fn main() {
         SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
     }
 
-    let (sender, receiver) = broadcast::channel(16);
+    let (sender, receiver) = async_std::channel::unbounded();
 
     let samples_per_second = 60;
     let data_producer = thread::spawn(move || {
