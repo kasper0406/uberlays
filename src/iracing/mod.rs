@@ -13,7 +13,7 @@ pub struct Driver {
 pub struct Telemetry {
     pub timestamp: Instant,
     pub throttle: f32,
-    pub r#break: f32,
+    pub brake: f32,
     pub gear: u16,
     pub velocity: f32,
     pub deltas: Vec<f32>,

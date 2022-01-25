@@ -38,7 +38,7 @@ impl<'a> PlotOverlay {
                 Plot {
                     measurements: VecDeque::new(),
                     color: skia_safe::Color4f::new(1.0, 0.0, 0.0, 1.0),
-                    extractor: Box::new(|state| state.r#break as f64),
+                    extractor: Box::new(|state| state.brake as f64),
                 },
             ],
         }

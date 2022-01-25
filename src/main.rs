@@ -16,13 +16,16 @@ use log::Level;
 use std::thread;
 use std::time::{ Instant };
 
+use async_std::task;
 use async_std::channel::Receiver;
+use async_std::stream::StreamExt;
 
 use overlay::Overlays;
 use iracing::{ Update, Telemetry };
 
 use iracing::data_collector::IracingConnection;
 use iracing::data_collector::IracingConnectionError;
+use iracing::data_collector::IracingValue;
 
 fn main() {
     // Setup logging
@@ -36,30 +39,14 @@ fn main() {
 
     let (sender, receiver) = async_std::channel::unbounded();
 
-    let samples_per_second = 60;
-    let data_producer = thread::spawn(move || {
+    let data_producer = task::spawn(async move {
         let start = Instant::now();
-        // TODO(knielsen): Terminate this thread!
-        /*
-        loop {
-            let time = Instant::now();
-            sender.send(Update::Telemetry(Telemetry {
-                timestamp: time,
-                throttle: (1f32 + time.duration_since(start).as_secs_f32().sin()) / 2f32,
-                r#break: 0.0,
-                gear: 1,
-                velocity: 250.0,
-                deltas: vec![0.364, 14.340, -2.423, -23.42],
-            }));
 
-            thread::sleep_ms(1000 / samples_per_second);
-        } */
-
-        let mut connection: Option<IracingConnection> = None;
+        let mut maybe_connection: Option<IracingConnection> = None;
         loop {
             match IracingConnection::new() {
                 Ok(new_connection) => {
-                    connection = Some(new_connection);
+                    maybe_connection = Some(new_connection);
                     break;
                 },
                 Err(IracingConnectionError::NotRunning) => {
@@ -68,12 +55,48 @@ fn main() {
                 }
             }
         }
+        let mut connection = maybe_connection.unwrap();
 
         info!("Established connection to iRacing");
+
+        let headers = connection.headers();
+        // info!["Headers: {:?}", headers];
+        let throttle_header = headers.iter().enumerate()
+                                    .find(|(idx, header)| header.name == "Throttle")
+                                    .unwrap();
+        let break_header = headers.iter().enumerate()
+                                    .find(|(idx, header)| header.name == "Brake")
+                                    .unwrap();
+
+        let mut ticks = 0;
+        while let Some(package) = connection.next().await {
+            ticks += 1;
+            if ticks % 60 == 0 {
+                info!["Tick count: {}", ticks];
+            }
+
+            let throttle = if let IracingValue::Float(received_throttle) = package[throttle_header.0] {
+                received_throttle
+            } else { 0.0 };
+
+            let brake = if let IracingValue::Float(received_break) = package[break_header.0] {
+                received_break
+            } else { 0.0 };
+
+            let timestamp = Instant::now();
+            sender.send(Update::Telemetry(Telemetry {
+                timestamp,
+                throttle,
+                brake,
+                gear: 1,
+                velocity: 0.0,
+                deltas: vec![0.364, 14.340, -2.423, -23.42],
+            })).await.unwrap();
+        }
     });
 
     let overlays = Overlays::new(receiver);
     overlays.start_event_loop();
 
-    data_producer.join();
+    task::block_on(data_producer);
 }

@@ -52,13 +52,23 @@ pub enum IracingValue {
     Unknown
 }
 
+#[derive(Debug)]
+pub struct DataHeader {
+    pub name: String,
+    pub description: String,
+    pub unit: String,
+}
+
 pub struct IracingConnection {
     mem_file: HANDLE,
     header: *mut irsdk_header,
     event_file: HANDLE,
 
     last_seen: i32,
+    buffer: Vec<u8>,
 }
+
+unsafe impl Send for IracingConnection {}
 
 impl Drop for IracingConnection {
     fn drop(self: &mut IracingConnection) {
@@ -103,82 +113,42 @@ impl IracingConnection {
         Ok(IracingConnection {
             mem_file, header, event_file,
             last_seen: 0,
+            buffer: vec![],
         })
+    }
 
-        /*
-        let mut buffer = vec![];
-        for i in 0..1 {
-            match unsafe { WaitForSingleObject(event_file, u32::MAX) } {
-                0x0 => (),
-                0x102 => panic!("TIMEOUT!"),
-                err => panic!("Some other failure: {}, detailed: {:?}", err, unsafe { GetLastError() })
-            };
+    pub fn headers(&self) -> Vec<DataHeader> {
+        unsafe {
+            let num_headers = (*self.header).numVars as isize;
+            let mut headers = Vec::with_capacity(num_headers as usize);
 
-            info!("Buffer header: {}", unsafe { (*header).ver });
-            info!("Status: {}", unsafe { (*header).status });
-            info!("Tickrate: {}", unsafe { (*header).tickRate });
-            info!("Session info update: {}", unsafe { (*header).sessionInfoUpdate });
-            info!("numVars: {}", unsafe { (*header).numVars });
-            info!("varHeader offset: {}", unsafe { (*header).varHeaderOffset });
-            info!("tickCount[0]: {}", unsafe { (*header).varBuf[0].tickCount });
-            info!("tickCount[1]: {}", unsafe { (*header).varBuf[1].tickCount });
-            info!("tickCount[2]: {}", unsafe { (*header).varBuf[2].tickCount });
-            info!("");
+            let var_headers = (self.header as *const u8).offset((*self.header).varHeaderOffset as isize) as *mut irsdk_varHeader;
 
-            let new_buffer_length = unsafe { (*header).bufLen } as usize;
-            if buffer.len() != new_buffer_length {
-                buffer = vec![0u8; new_buffer_length];
+            for i in 0..num_headers {
+                let var_header = *((var_headers.offset(i)) as *const irsdk_varHeader) as irsdk_varHeader;
+
+                let name = String::from(CStr::from_ptr(var_header.name.as_ptr()).to_str().unwrap());
+                let description = String::from(CStr::from_ptr(var_header.desc.as_ptr()).to_str().unwrap());
+                let unit = String::from(CStr::from_ptr(var_header.unit.as_ptr()).to_str().unwrap());
+
+                headers.push(DataHeader { name, description, unit });
             }
 
-            unsafe {
-                for i in 0..(unsafe { (*header).numVars } as isize) {
-                    let var_headers = (mmap as *const u8).offset((*header).varHeaderOffset as isize) as *mut irsdk_varHeader;
-                    let var_header = *((var_headers.offset(i)) as *const irsdk_varHeader) as irsdk_varHeader;
-
-                    let name = CStr::from_ptr(var_header.name.as_ptr());
-                    let desc = CStr::from_ptr(var_header.desc.as_ptr());
-                    let unit = CStr::from_ptr(var_header.unit.as_ptr());
-
-                    // info!("Offset: {}", var_header.offset);
-                    // info!("Count: {}", var_header.count);
-
-                    let idx = (*header).varBuf.iter().enumerate().max_by_key(|(_, buf)| buf.tickCount).unwrap().0;
-                    let tick_count_before = (*header).varBuf[idx].tickCount;
-
-                    let values_ptr = (mmap as *const u8).offset((*header).varBuf[idx].bufOffset as isize);
-                    buffer.copy_from_slice(std::slice::from_raw_parts(values_ptr, new_buffer_length));
-
-                    if (*header).varBuf[idx].tickCount != tick_count_before {
-                        panic!("Data changed while copying! This can't be good!")
-                    }
-
-                    let buffer_ptr = buffer.as_ptr();
-
-                    let value_ptr = buffer_ptr.offset(var_header.offset as isize);
-                    let value = match var_header.type_ {
-                        irsdk_VarType_irsdk_double => IracingValue::Double((*(value_ptr as *const f64)).clone()),
-                        irsdk_VarType_irsdk_int => IracingValue::Int((*(value_ptr as *const i32)).clone()),
-                        irsdk_VarType_irsdk_float => IracingValue::Float((*(value_ptr as *const f32)).clone()),
-                        _ => IracingValue::Unknown
-                    };
-        
-                    // if name.to_str().unwrap() == "Throttle" {
-                    info!("{} [{}]: {}", name.to_str().unwrap(), unit.to_str().unwrap(), desc.to_str().unwrap());
-                    info!("    - {:?}", value);
-                    // }
-                }
-            }
-        } */
+            headers
+        }
     }
 }
 
 impl Stream for IracingConnection {
     type Item = Vec<IracingValue>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         unsafe {
+            // TODO(knielsen): We could be timed here, but for now :shrug:
             let idx = (*self.header).varBuf.iter().enumerate().max_by_key(|(_, buf)| buf.tickCount).unwrap().0;
-            if (*self.header).varBuf[idx].tickCount <= self.last_seen {
+            let tick_count_before = (*self.header).varBuf[idx].tickCount;
+
+            if tick_count_before <= self.last_seen {
                 // Wait for a new element
                 let waiter = cx.waker().clone();
                 let event_file_clone = self.event_file.clone();
@@ -186,13 +156,43 @@ impl Stream for IracingConnection {
                     match WaitForSingleObject(event_file_clone, u32::MAX) {
                         0x0 => waiter.wake(),
                         0x102 => panic!("TIMEOUT!"),
-                        err => panic!("Some other failure: {}, detailed: {:?}", err, unsafe { GetLastError() })
+                        err => panic!("Some other failure: {}, detailed: {:?}", err, GetLastError())
                     };
                 });
 
                 Poll::Pending
             } else {
-                Poll::Ready(Some(vec![IracingValue::Int(42)]))
+                self.last_seen = tick_count_before;
+
+                let new_buffer_length = (*self.header).bufLen as usize;
+                if self.buffer.len() != new_buffer_length {
+                    self.buffer = vec![0u8; new_buffer_length];
+                }
+
+                let values_ptr = (self.header as *const u8).offset((*self.header).varBuf[idx].bufOffset as isize);
+                self.buffer.copy_from_slice(std::slice::from_raw_parts(values_ptr, new_buffer_length));
+                if (*self.header).varBuf[idx].tickCount != tick_count_before {
+                    panic!("Data changed while copying! This can't be good!")
+                }
+
+                let num_headers = (*self.header).numVars as isize;
+                let mut values = Vec::with_capacity(num_headers as usize);
+                let var_headers = (self.header as *const u8).offset((*self.header).varHeaderOffset as isize) as *mut irsdk_varHeader;
+                for i in 0..num_headers {
+                    let var_header = *((var_headers.offset(i)) as *const irsdk_varHeader) as irsdk_varHeader;
+
+                    let value_ptr = self.buffer.as_ptr().offset(var_header.offset as isize);
+                    let value = match var_header.type_ {
+                        irsdk_VarType_irsdk_double => IracingValue::Double((*(value_ptr as *const f64)).clone()),
+                        irsdk_VarType_irsdk_int => IracingValue::Int((*(value_ptr as *const i32)).clone()),
+                        irsdk_VarType_irsdk_float => IracingValue::Float((*(value_ptr as *const f32)).clone()),
+                        _ => IracingValue::Unknown
+                    };
+
+                    values.push(value);
+                }
+
+                Poll::Ready(Some(values))
             }
         }
     }

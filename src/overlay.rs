@@ -44,12 +44,12 @@ impl Overlays {
     pub fn new(state_receiver: Receiver<Update>) -> Overlays {
         let event_loop = EventLoop::<()>::with_user_event();
 
-        let plot_overlay = OverlayImpl::new(&event_loop, "Plot", 800.0, 160.0, Box::new(PlotOverlay::new()));
+        let plot_overlay = OverlayImpl::new(&event_loop, "Plot", 500.0, 90.0, Box::new(PlotOverlay::new()));
         let head2head_overlay = OverlayImpl::new(&event_loop, "Head2Head", 300.0, 600.0, Box::new(Head2HeadOverlay::new()));
 
         let mut window_map = HashMap::new();
         window_map.insert(plot_overlay.window.id(), plot_overlay);
-        window_map.insert(head2head_overlay.window.id(), head2head_overlay);
+        // window_map.insert(head2head_overlay.window.id(), head2head_overlay);
 
         Overlays {
             state_receiver,
