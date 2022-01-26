@@ -2,6 +2,7 @@ mod iracing;
 mod overlay;
 mod plot;
 mod head2head;
+mod track;
 
 #[macro_use] extern crate log;
 extern crate env_logger;
@@ -23,6 +24,7 @@ use async_std::stream::StreamExt;
 use overlay::Overlays;
 use iracing::{ Update, Telemetry };
 
+use iracing::data_collector;
 use iracing::data_collector::IracingConnection;
 use iracing::data_collector::IracingConnectionError;
 use iracing::data_collector::IracingValue;
@@ -40,8 +42,22 @@ fn main() {
     let (sender, receiver) = async_std::channel::unbounded();
 
     let data_producer = task::spawn(async move {
-        let start = Instant::now();
+        loop {
+            sender.send(Update::Telemetry(Telemetry {
+                timestamp: Instant::now(),
+                throttle: 0.0,
+                brake: 0.0,
+                gear: 1,
+                velocity: 0.0,
+                deltas: vec![0.364, 14.340, -2.423, -23.42],
+            })).await.unwrap();
 
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+    });
+
+    /*
+    let data_producer = task::spawn(async move {
         let mut maybe_connection: Option<IracingConnection> = None;
         loop {
             match IracingConnection::new() {
@@ -62,38 +78,46 @@ fn main() {
         let headers = connection.headers();
         // info!["Headers: {:?}", headers];
         let throttle_header = headers.iter().enumerate()
-                                    .find(|(idx, header)| header.name == "Throttle")
+                                    .find(|(_, header)| header.name == "Throttle")
                                     .unwrap();
-        let break_header = headers.iter().enumerate()
-                                    .find(|(idx, header)| header.name == "Brake")
+        let brake_header = headers.iter().enumerate()
+                                    .find(|(_, header)| header.name == "Brake")
                                     .unwrap();
 
-        let mut ticks = 0;
+        let mut packages = 0;
         while let Some(package) = connection.next().await {
-            ticks += 1;
-            if ticks % 60 == 0 {
-                info!["Tick count: {}", ticks];
+            packages += 1;
+            if packages % 60 == 0 {
+                info!["Package count: {}", packages];
             }
 
-            let throttle = if let IracingValue::Float(received_throttle) = package[throttle_header.0] {
-                received_throttle
-            } else { 0.0 };
+            match package {
+                data_collector::Update::Telemetry(telemetry) => {
+                    let throttle = match telemetry[throttle_header.0] {
+                        IracingValue::Float(throttle) => throttle,
+                        _ => 0.0
+                    };
+                    let brake = match telemetry[brake_header.0] {
+                        IracingValue::Float(brake) => brake,
+                        _ => 0.0
+                    };
 
-            let brake = if let IracingValue::Float(received_break) = package[break_header.0] {
-                received_break
-            } else { 0.0 };
-
-            let timestamp = Instant::now();
-            sender.send(Update::Telemetry(Telemetry {
-                timestamp,
-                throttle,
-                brake,
-                gear: 1,
-                velocity: 0.0,
-                deltas: vec![0.364, 14.340, -2.423, -23.42],
-            })).await.unwrap();
+                    let timestamp = Instant::now();
+                    sender.send(Update::Telemetry(Telemetry {
+                        timestamp,
+                        throttle,
+                        brake,
+                        gear: 1,
+                        velocity: 0.0,
+                        deltas: vec![0.364, 14.340, -2.423, -23.42],
+                    })).await.unwrap();
+                },
+                data_collector::Update::SessionInfo(session_info) => {
+                    info!["Session info: {}", session_info]
+                }
+            }
         }
-    });
+    }); */
 
     let overlays = Overlays::new(receiver);
     overlays.start_event_loop();

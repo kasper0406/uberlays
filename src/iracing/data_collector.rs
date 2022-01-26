@@ -64,8 +64,10 @@ pub struct IracingConnection {
     header: *mut irsdk_header,
     event_file: HANDLE,
 
-    last_seen: i32,
+    seen_tick_count: i32,
     buffer: Vec<u8>,
+
+    session_info_seen_tick_count: i32,
 }
 
 unsafe impl Send for IracingConnection {}
@@ -112,7 +114,8 @@ impl IracingConnection {
 
         Ok(IracingConnection {
             mem_file, header, event_file,
-            last_seen: 0,
+            seen_tick_count: -1,
+            session_info_seen_tick_count: -1,
             buffer: vec![],
         })
     }
@@ -139,16 +142,42 @@ impl IracingConnection {
     }
 }
 
+pub enum Update {
+    Telemetry(Vec<IracingValue>),
+    SessionInfo(String),
+}
+
 impl Stream for IracingConnection {
-    type Item = Vec<IracingValue>;
+    type Item = Update;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         unsafe {
             // TODO(knielsen): We could be timed here, but for now :shrug:
             let idx = (*self.header).varBuf.iter().enumerate().max_by_key(|(_, buf)| buf.tickCount).unwrap().0;
             let tick_count_before = (*self.header).varBuf[idx].tickCount;
+            let session_info_tick_count = (*self.header).sessionInfoUpdate;
 
-            if tick_count_before <= self.last_seen {
+            // Check for session info updates
+            if session_info_tick_count > self.session_info_seen_tick_count {
+                self.session_info_seen_tick_count = session_info_tick_count;
+
+                let len = (*self.header).sessionInfoLen as usize;
+                let offset = (*self.header).sessionInfoOffset as isize;
+                let mut buffer = vec![0u8; len];
+
+                let session_info_ptr = (self.header as *const u8).offset(offset);
+                buffer.copy_from_slice(std::slice::from_raw_parts(session_info_ptr, len));
+
+                if (*self.header).sessionInfoUpdate != session_info_tick_count {
+                    panic!("Session info was changed while copying!");
+                }
+
+                let sessionInfo = String::from_utf8(buffer).unwrap();
+                return Poll::Ready(Some(Update::SessionInfo(sessionInfo)));
+            }
+
+            // Check for ordinary Telemetry updates
+            if tick_count_before <= self.seen_tick_count {
                 // Wait for a new element
                 let waiter = cx.waker().clone();
                 let event_file_clone = self.event_file.clone();
@@ -162,7 +191,7 @@ impl Stream for IracingConnection {
 
                 Poll::Pending
             } else {
-                self.last_seen = tick_count_before;
+                self.seen_tick_count = tick_count_before;
 
                 let new_buffer_length = (*self.header).bufLen as usize;
                 if self.buffer.len() != new_buffer_length {
@@ -172,7 +201,7 @@ impl Stream for IracingConnection {
                 let values_ptr = (self.header as *const u8).offset((*self.header).varBuf[idx].bufOffset as isize);
                 self.buffer.copy_from_slice(std::slice::from_raw_parts(values_ptr, new_buffer_length));
                 if (*self.header).varBuf[idx].tickCount != tick_count_before {
-                    panic!("Data changed while copying! This can't be good!")
+                    panic!("Data changed while copying! This can't be good!");
                 }
 
                 let num_headers = (*self.header).numVars as isize;
@@ -192,7 +221,7 @@ impl Stream for IracingConnection {
                     values.push(value);
                 }
 
-                Poll::Ready(Some(values))
+                Poll::Ready(Some(Update::Telemetry(values)))
             }
         }
     }

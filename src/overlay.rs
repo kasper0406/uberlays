@@ -17,6 +17,7 @@ use winit::event_loop::EventLoop;
 use crate::iracing::Update;
 use crate::plot::PlotOverlay;
 use crate::head2head::Head2HeadOverlay;
+use crate::track::TrackOverlay;
 
 pub trait Drawable {
     fn draw(self: &mut Self, canvas: &mut skia_safe::Canvas, coord: &CoordinateSystemHelper);
@@ -46,10 +47,12 @@ impl Overlays {
 
         let plot_overlay = OverlayImpl::new(&event_loop, "Plot", 500.0, 90.0, Box::new(PlotOverlay::new()));
         let head2head_overlay = OverlayImpl::new(&event_loop, "Head2Head", 300.0, 600.0, Box::new(Head2HeadOverlay::new()));
+        let track_overlay = OverlayImpl::new(&event_loop, "Track", 300.0, 300.0, Box::new(TrackOverlay::new()));
 
         let mut window_map = HashMap::new();
         window_map.insert(plot_overlay.window.id(), plot_overlay);
         // window_map.insert(head2head_overlay.window.id(), head2head_overlay);
+        window_map.insert(track_overlay.window.id(), track_overlay);
 
         Overlays {
             state_receiver,
