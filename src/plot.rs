@@ -1,51 +1,78 @@
-use async_std::channel::Receiver;
+use async_std::channel;
+use async_std::channel::{ Sender, Receiver };
 use std::time::{ Duration, Instant };
 use std::collections::VecDeque;
 
 use skulpin::skia_safe;
 use skulpin::LogicalSize;
 
-use crate::overlay::{ Overlay, Drawable, StateUpdater };
+use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
 use crate::iracing::{ Update, Telemetry };
+
+use async_trait::async_trait;
 
 struct PlotPoint {
     time: Instant,
     value: f64, // Asummed to range in [0, 1]
 }
 
+type Extractor = dyn Fn(&Telemetry) -> f64 + Send;
+
+enum StateUpdate {
+    AddMeasurement(Telemetry),
+}
+
+pub struct PlotStateTracker {
+    sender: Sender<StateUpdate>,
+}
+
 struct Plot {
     measurements: VecDeque<PlotPoint>,
     color: skia_safe::Color4f,
 
-    extractor: Box<dyn Fn(&Telemetry) -> f64>,
+    extractor: Box<Extractor>,
 }
 
 pub struct PlotOverlay {
     plots: Vec<Plot>,
     duration: Duration,
+    receiver: Receiver<StateUpdate>,
 }
 
 impl<'a> PlotOverlay {
-    pub fn new() -> PlotOverlay {
-        PlotOverlay {
-            duration: Duration::from_secs(10),
-            plots: vec![
-                Plot {
-                    measurements: VecDeque::new(),
-                    color: skia_safe::Color4f::new(0.0, 1.0, 0.0, 1.0),
-                    extractor: Box::new(|state| state.throttle as f64),
-                },
-                Plot {
-                    measurements: VecDeque::new(),
-                    color: skia_safe::Color4f::new(1.0, 0.0, 0.0, 1.0),
-                    extractor: Box::new(|state| state.brake as f64),
-                },
-            ],
-        }
+    pub fn new() -> (PlotOverlay, PlotStateTracker) {
+        let (sender, receiver) = channel::unbounded();
+        (
+            PlotOverlay {
+                duration: Duration::from_secs(15),
+                plots: vec![
+                    Plot {
+                        measurements: VecDeque::new(),
+                        color: skia_safe::Color4f::new(0.0, 1.0, 0.0, 1.0),
+                        extractor: Box::new(|state| state.throttle as f64),
+                    },
+                    Plot {
+                        measurements: VecDeque::new(),
+                        color: skia_safe::Color4f::new(1.0, 0.0, 0.0, 1.0),
+                        extractor: Box::new(|state| state.brake as f64),
+                    },
+                ],
+                receiver,
+            },
+            PlotStateTracker { sender },
+        )
     }
 }
 
-impl Overlay for PlotOverlay {}
+impl Overlay for PlotOverlay {
+    fn window_spec(&self) -> WindowSpec {
+        WindowSpec {
+            title: "Plot".to_string(),
+            width: 500.0,
+            height: 90.0,
+        }
+    }
+}
 
 impl Drawable for PlotOverlay {
     fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
@@ -76,28 +103,42 @@ impl Drawable for PlotOverlay {
     }
 }
 
-impl StateUpdater for PlotOverlay {
-    fn update_state(self: &mut Self, update: &Update) {
-        let now = Instant::now();
-        for plot in &mut self.plots {
-            while let Some(measurement) = plot.measurements.front() {
-                if now.duration_since(measurement.time) < self.duration {
-                    break;
-                }
-                plot.measurements.pop_front();
-            }
-        }
-
+#[async_trait]
+impl StateTracker for PlotStateTracker {
+    async fn process(&mut self, update: &Update) {
         match update {
             Update::Telemetry(new_state) => {
-                for plot in &mut self.plots {
-                    plot.measurements.push_back(PlotPoint {
-                        time: new_state.timestamp.clone(),
-                        value: (plot.extractor)(&new_state),
-                    });
-                }
+                self.sender.send(StateUpdate::AddMeasurement(new_state.clone())).await;
             },
-            _ => ()
+            _ => (),
+        }
+    }
+}
+
+impl StateUpdater for PlotOverlay {
+    fn set_state(self: &mut Self) {
+        if let Ok(update) = self.receiver.try_recv() {
+            let now = Instant::now();
+            for plot in &mut self.plots {
+                while let Some(measurement) = plot.measurements.front() {
+                    if now.duration_since(measurement.time) < self.duration {
+                        break;
+                    }
+                    plot.measurements.pop_front();
+                }
+            }
+
+            match update {
+                StateUpdate::AddMeasurement(telemetry) => {
+                    for plot in &mut self.plots {
+                        plot.measurements.push_back(PlotPoint {
+                            time: telemetry.timestamp.clone(),
+                            value: (plot.extractor)(&telemetry),
+                        });
+                    }
+                },
+                _ => ()
+            }
         }
     }
 }

@@ -17,4 +17,7 @@ fn main() {
     bindgens
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
+    
+    prost_build::compile_protos(&["src/track.proto"], &["src/"])
+        .expect("Failed to generate protobuf code");
 }

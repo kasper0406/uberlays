@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use async_std::channel::Receiver;
+use async_std::channel;
+use async_std::channel::{ Receiver, Sender };
 
 use skulpin::skia_safe;
 use skulpin::{CoordinateSystemHelper, LogicalSize};
@@ -19,15 +20,25 @@ use crate::plot::PlotOverlay;
 use crate::head2head::Head2HeadOverlay;
 use crate::track::TrackOverlay;
 
+use async_trait::async_trait;
+
 pub trait Drawable {
     fn draw(self: &mut Self, canvas: &mut skia_safe::Canvas, coord: &CoordinateSystemHelper);
 }
 
 pub trait StateUpdater {
-    fn update_state(self: &mut Self, update: &Update);
+    fn set_state(self: &mut Self);
 }
 
-pub trait Overlay: Drawable + StateUpdater { } 
+pub struct WindowSpec {
+    pub title: String,
+    pub width: f32,
+    pub height: f32,
+}
+
+pub trait Overlay: Drawable + StateUpdater {
+    fn window_spec(&self) -> WindowSpec;
+} 
 
 pub struct OverlayImpl {
     pub overlay: Box<dyn Overlay>,
@@ -38,26 +49,59 @@ pub struct OverlayImpl {
 pub struct Overlays {
     event_loop: EventLoop<()>,
     overlays: HashMap<WindowId, OverlayImpl>,
-    state_receiver: Receiver<Update>,
+    state_updater: async_std::task::JoinHandle<()>,
+}
+
+#[async_trait]
+pub trait StateTracker {
+    async fn process(&mut self, update: &Update);
 }
 
 impl Overlays {
     pub fn new(state_receiver: Receiver<Update>) -> Overlays {
         let event_loop = EventLoop::<()>::with_user_event();
 
-        let plot_overlay = OverlayImpl::new(&event_loop, "Plot", 500.0, 90.0, Box::new(PlotOverlay::new()));
-        let head2head_overlay = OverlayImpl::new(&event_loop, "Head2Head", 300.0, 600.0, Box::new(Head2HeadOverlay::new()));
-        let track_overlay = OverlayImpl::new(&event_loop, "Track", 300.0, 300.0, Box::new(TrackOverlay::new()));
+        let (plot_overlay, plot_overlay_state) = PlotOverlay::new();
+        let (track_overlay, track_overlay_state) = TrackOverlay::new();
+        let (head2head_overlay, head2head_overlay_state) = Head2HeadOverlay::new();
 
-        let mut window_map = HashMap::new();
-        window_map.insert(plot_overlay.window.id(), plot_overlay);
-        // window_map.insert(head2head_overlay.window.id(), head2head_overlay);
-        window_map.insert(track_overlay.window.id(), track_overlay);
+        let overlays: Vec<Box<dyn Overlay>> = vec![
+            Box::new(plot_overlay),
+            Box::new(track_overlay),
+            Box::new(head2head_overlay),
+        ];
+
+        let state_updater = async_std::task::spawn(async move {
+            let mut state_trackers: Vec<Box<dyn StateTracker + Send + Sync>> = vec![
+                Box::new(plot_overlay_state),
+                Box::new(track_overlay_state),
+                Box::new(head2head_overlay_state),
+            ];
+
+            // TODO(knielsen): Do this in parallel!
+            while let Ok(update) = state_receiver.recv().await {
+                for state_tracker in &mut state_trackers {
+                    let test = state_tracker.process(&update);
+                    test.await;
+                }
+            }
+        });
+
+        let window_map: HashMap<_, _> = overlays.into_iter()
+            .map(|overlay| {
+                let window_spec = overlay.window_spec();
+                let overlay_impl = OverlayImpl::new(&event_loop, &window_spec.title, window_spec.width, window_spec.height, overlay);
+                (
+                    overlay_impl.window.id(),
+                    overlay_impl
+                )
+            })
+            .collect();
 
         Overlays {
-            state_receiver,
             event_loop,
             overlays: window_map,
+            state_updater,
         }
     }
 
@@ -70,15 +114,8 @@ impl Overlays {
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
 
                 winit::event::Event::MainEventsCleared => {
-                    let mut updates = Vec::with_capacity(5);
-                    while let Ok(new_state) = self.state_receiver.try_recv() {
-                        updates.push(new_state);
-                    }
-
                     for (_window_id, mut overlay) in &mut self.overlays {
-                        for update in &updates {
-                            overlay.overlay.update_state(update);
-                        }
+                        overlay.overlay.set_state();
                         overlay.window.request_redraw();
                     }
                 },
@@ -142,7 +179,7 @@ impl OverlayImpl {
         OverlayImpl {
             window,
             renderer,
-            overlay
+            overlay,
         }
     }
 }
