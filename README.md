@@ -20,10 +20,10 @@ The process I have been following so far:
    mkdir scripts/build
    protoc --proto_path=src --python_out=scripts/build src/track.proto
    ```
-4. Run the following to generate the map description (assuming the blender file 
+5. Run the following to generate the map description (assuming the blender file 
    is called `[...]\hungaroring\grandprix.blend`:
    ```
    blender --b .\media\tracks\hungaroring\grandprix.blend -P .\scripts\blender.py
    ```
-5. Move the resulting `output.dat` file to the desired location. In this case
+6. Move the resulting `output.dat` file to the desired location. In this case
    `media/tracks/hungaroring/grandprix.dat`.

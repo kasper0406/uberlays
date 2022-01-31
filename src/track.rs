@@ -20,7 +20,7 @@ use async_trait::async_trait;
 
 #[derive(Clone)]
 pub struct State {
-    position: f32,
+    positions: Vec<f32>,
     track: Option<Track>,
 }
 
@@ -38,7 +38,7 @@ impl TrackOverlay {
     pub fn new() -> (TrackOverlay, TrackOverlayState) {
         let (sender, receiver) = channel::unbounded();
         let start_state = State {
-            position: 0.0,
+            positions: vec![],
             track: None,
         };
 
@@ -116,10 +116,13 @@ impl Drawable for TrackOverlay {
             let mut measures = ContourMeasureIter::from_path(&path, false, 1.0);
             if let Some(measure) = measures.next() {
                 let length = measure.length();
-                if let Some((point, _tangent)) = measure.pos_tan(self.state.position * length) {
-                    let mut car_paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.2, 0.2, 0.5, 1.0), None);
-                    car_paint.set_anti_alias(true);
-                    canvas.draw_circle(point, 4.0, &car_paint);
+
+                for position in &self.state.positions {
+                    if let Some((point, _tangent)) = measure.pos_tan(position * length) {
+                        let mut car_paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.2, 0.2, 0.5, 1.0), None);
+                        car_paint.set_anti_alias(true);
+                        canvas.draw_circle(point, 4.0, &car_paint);
+                    }
                 }
             }
 
@@ -132,14 +135,19 @@ impl Drawable for TrackOverlay {
 impl StateTracker for TrackOverlayState {
     async fn process(&mut self, update: &Update) {
         let mut new_state = self.current_state.clone();
-        if self.current_state.track.is_none() {
-            match load_track("hungaroring", "grandprix").await {
-                Ok(track) => new_state.track = Some(track),
-                Err(err) => error!["Failed to load track: {}", err],
+        match update {
+            Update::Telemetry(telemetry) => {
+                new_state.positions = telemetry.positions.clone();
+            },
+            Update::Session(session_info) => {
+                if self.current_state.track.is_none() {
+                    match load_track(&session_info.track.name, &session_info.track.configuration).await {
+                        Ok(track) => new_state.track = Some(track),
+                        Err(err) => error!["Failed to load track: {}", err],
+                    }
+                }
             }
         }
-
-        new_state.position = (self.current_state.position + 0.002) % 1.0;
 
         self.current_state = new_state.clone();
         self.sender.send(new_state).await.unwrap();
@@ -167,7 +175,8 @@ async fn load_track(track: &str, layout: &str) -> Result<Track, String> {
     let mut track_file = File::open(path).await
         .map_err(|_err| format!["Could not find map file {}", path_clone])?;
     let mut buffer = vec![];
-    track_file.read_to_end(&mut buffer).await.unwrap();
+    track_file.read_to_end(&mut buffer).await
+        .map_err(|_err| format!["Failed to read file contents of {}", path_clone])?;
     Track::decode(&*buffer)
         .map_err(|_err| format!["Map file is in wrong format!"])
 }

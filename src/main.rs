@@ -41,6 +41,7 @@ fn main() {
 
     let (sender, receiver) = async_std::channel::unbounded();
 
+    /*
     let data_producer = task::spawn(async move {
         loop {
             sender.send(Update::Telemetry(Telemetry {
@@ -54,9 +55,8 @@ fn main() {
 
             thread::sleep(std::time::Duration::from_millis(50));
         }
-    });
+    }); */
 
-    /*
     let data_producer = task::spawn(async move {
         let mut maybe_connection: Option<IracingConnection> = None;
         loop {
@@ -83,6 +83,9 @@ fn main() {
         let brake_header = headers.iter().enumerate()
                                     .find(|(_, header)| header.name == "Brake")
                                     .unwrap();
+        let positions_header = headers.iter().enumerate()
+                                    .find(|(_, header)| header.name == "Positions")
+                                    .unwrap();
 
         let mut packages = 0;
         while let Some(package) = connection.next().await {
@@ -101,6 +104,10 @@ fn main() {
                         IracingValue::Float(brake) => brake,
                         _ => 0.0
                     };
+                    let positions = match &telemetry[positions_header.0] {
+                        IracingValue::FloatVector(positions) => positions.clone(),
+                        _ => vec![],
+                    };
 
                     let timestamp = Instant::now();
                     sender.send(Update::Telemetry(Telemetry {
@@ -110,6 +117,7 @@ fn main() {
                         gear: 1,
                         velocity: 0.0,
                         deltas: vec![0.364, 14.340, -2.423, -23.42],
+                        positions,
                     })).await.unwrap();
                 },
                 data_collector::Update::SessionInfo(session_info) => {
@@ -117,7 +125,7 @@ fn main() {
                 }
             }
         }
-    }); */
+    });
 
     let overlays = Overlays::new(receiver);
     overlays.start_event_loop();

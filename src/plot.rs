@@ -108,7 +108,7 @@ impl StateTracker for PlotStateTracker {
     async fn process(&mut self, update: &Update) {
         match update {
             Update::Telemetry(new_state) => {
-                self.sender.send(StateUpdate::AddMeasurement(new_state.clone())).await;
+                self.sender.send(StateUpdate::AddMeasurement(new_state.clone())).await.unwrap();
             },
             _ => (),
         }

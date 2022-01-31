@@ -17,12 +17,21 @@ pub struct Telemetry {
     pub gear: u16,
     pub velocity: f32,
     pub deltas: Vec<f32>,
+    pub positions: Vec<f32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TrackSpec {
+    pub name: String,
+    pub configuration: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct SessionInfo {
     pub name: String,
     pub drivers: Vec<Driver>,
+
+    pub track: TrackSpec,
 }
 
 #[derive(Debug, Clone)]
