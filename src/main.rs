@@ -28,6 +28,15 @@ use iracing::data_collector;
 use iracing::data_collector::IracingConnection;
 use iracing::data_collector::IracingConnectionError;
 use iracing::data_collector::IracingValue;
+use iracing::data_collector::DataHeader;
+
+fn extract_value<T>(telemetry: &[IracingValue], header: Option<(usize, &DataHeader)>, extractor: Box<dyn Fn(&IracingValue) -> T>) -> T {
+    if let Some((idx, _)) = header {
+        (extractor)(&telemetry[idx])
+    } else {
+        (extractor)(&IracingValue::Unknown)
+    }
+}
 
 fn main() {
     // Setup logging
@@ -78,14 +87,11 @@ fn main() {
         let headers = connection.headers();
         // info!["Headers: {:?}", headers];
         let throttle_header = headers.iter().enumerate()
-                                    .find(|(_, header)| header.name == "Throttle")
-                                    .unwrap();
+                .find(|(_, header)| header.name == "Throttle");
         let brake_header = headers.iter().enumerate()
-                                    .find(|(_, header)| header.name == "Brake")
-                                    .unwrap();
+                .find(|(_, header)| header.name == "Brake");
         let positions_header = headers.iter().enumerate()
-                                    .find(|(_, header)| header.name == "Positions")
-                                    .unwrap();
+                .find(|(_, header)| header.name == "Positions");
 
         let mut packages = 0;
         while let Some(package) = connection.next().await {
@@ -96,18 +102,18 @@ fn main() {
 
             match package {
                 data_collector::Update::Telemetry(telemetry) => {
-                    let throttle = match telemetry[throttle_header.0] {
-                        IracingValue::Float(throttle) => throttle,
+                    let throttle = extract_value(&telemetry, throttle_header, Box::new(|val| match val {
+                        IracingValue::Float(throttle) => throttle.clone(),
                         _ => 0.0
-                    };
-                    let brake = match telemetry[brake_header.0] {
-                        IracingValue::Float(brake) => brake,
+                    }));
+                    let brake = extract_value(&telemetry, brake_header, Box::new(|val| match val {
+                        IracingValue::Float(brake) => brake.clone(),
                         _ => 0.0
-                    };
-                    let positions = match &telemetry[positions_header.0] {
+                    }));
+                    let positions = extract_value(&telemetry, positions_header, Box::new(|val| match val {
                         IracingValue::FloatVector(positions) => positions.clone(),
-                        _ => vec![],
-                    };
+                        _ => vec![]
+                    }));
 
                     let timestamp = Instant::now();
                     sender.send(Update::Telemetry(Telemetry {

@@ -10,7 +10,7 @@ use skulpin::skia_safe::ContourMeasure;
 use skulpin::skia_safe::ContourMeasureIter;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
-use crate::iracing::{ Update, Telemetry };
+use crate::iracing::{ Update, Telemetry, TrackSpec };
 
 use async_std::fs::File;
 use async_std::prelude::*;
@@ -31,6 +31,7 @@ pub struct TrackOverlay {
 
 pub struct TrackOverlayState {
     current_state: State,
+    last_seen_track: Option<TrackSpec>,
     sender: Sender<State>
 }
 
@@ -50,6 +51,7 @@ impl TrackOverlay {
             TrackOverlayState {
                 sender,
                 current_state: start_state.clone(),
+                last_seen_track: None,
             }
         )
     }
@@ -140,7 +142,9 @@ impl StateTracker for TrackOverlayState {
                 new_state.positions = telemetry.positions.clone();
             },
             Update::Session(session_info) => {
-                if self.current_state.track.is_none() {
+                let track_info_clone = Some(session_info.track.clone());
+                if track_info_clone != self.last_seen_track {
+                    self.last_seen_track = track_info_clone;
                     match load_track(&session_info.track.name, &session_info.track.configuration).await {
                         Ok(track) => new_state.track = Some(track),
                         Err(err) => error!["Failed to load track: {}", err],

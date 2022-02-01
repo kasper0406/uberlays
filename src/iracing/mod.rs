@@ -20,7 +20,7 @@ pub struct Telemetry {
     pub positions: Vec<f32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrackSpec {
     pub name: String,
     pub configuration: String,

@@ -211,10 +211,32 @@ impl Stream for IracingConnection {
                     let var_header = *((var_headers.offset(i)) as *const irsdk_varHeader) as irsdk_varHeader;
 
                     let value_ptr = self.buffer.as_ptr().offset(var_header.offset as isize);
-                    let value = match var_header.type_ {
-                        irsdk_VarType_irsdk_double => IracingValue::Double((*(value_ptr as *const f64)).clone()),
-                        irsdk_VarType_irsdk_int => IracingValue::Int((*(value_ptr as *const i32)).clone()),
-                        irsdk_VarType_irsdk_float => IracingValue::Float((*(value_ptr as *const f32)).clone()),
+                    let count = var_header.count as usize;
+                    let value = match (var_header.type_, count) {
+                        (irsdk_VarType_irsdk_double, 1) => IracingValue::Double((*(value_ptr as *const f64)).clone()),
+                        (irsdk_VarType_irsdk_double, _) => {
+                            let mut values = Vec::with_capacity(count);
+                            for j in 0..count {
+                                values.push((*(value_ptr as *const f64).offset(j as isize)).clone());
+                            }
+                            IracingValue::DoubleVector(values)
+                        },
+                        (irsdk_VarType_irsdk_int, 1) => IracingValue::Int((*(value_ptr as *const i32)).clone()),
+                        (irsdk_VarType_irsdk_int, _) => {
+                            let mut values = Vec::with_capacity(count);
+                            for j in 0..count {
+                                values.push((*(value_ptr as *const i32).offset(j as isize)).clone());
+                            }
+                            IracingValue::IntVector(values)
+                        },
+                        (irsdk_VarType_irsdk_float, 1) => IracingValue::Float((*(value_ptr as *const f32)).clone()),
+                        (irsdk_VarType_irsdk_float, _) => {
+                            let mut values = Vec::with_capacity(count);
+                            for j in 0..count {
+                                values.push((*(value_ptr as *const f32).offset(j as isize)).clone());
+                            }
+                            IracingValue::FloatVector(values)
+                        },
                         _ => IracingValue::Unknown
                     };
 
