@@ -91,7 +91,7 @@ fn main() {
         let brake_header = headers.iter().enumerate()
                 .find(|(_, header)| header.name == "Brake");
         let positions_header = headers.iter().enumerate()
-                .find(|(_, header)| header.name == "Positions");
+                .find(|(_, header)| header.name == "CarIdxLapDistPct");
 
         let mut packages = 0;
         while let Some(package) = connection.next().await {

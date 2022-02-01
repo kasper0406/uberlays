@@ -160,6 +160,7 @@ impl Stream for IracingConnection {
             // Check for session info updates
             if session_info_tick_count > self.session_info_seen_tick_count {
                 self.session_info_seen_tick_count = session_info_tick_count;
+                debug!["Updating session info at tick {}", self.session_info_seen_tick_count];
 
                 let len = (*self.header).sessionInfoLen as usize;
                 let offset = (*self.header).sessionInfoOffset as isize;
@@ -167,13 +168,13 @@ impl Stream for IracingConnection {
 
                 let session_info_ptr = (self.header as *const u8).offset(offset);
                 buffer.copy_from_slice(std::slice::from_raw_parts(session_info_ptr, len));
-
                 if (*self.header).sessionInfoUpdate != session_info_tick_count {
                     panic!("Session info was changed while copying!");
                 }
 
-                let sessionInfo = String::from_utf8(buffer).unwrap();
-                return Poll::Ready(Some(Update::SessionInfo(sessionInfo)));
+                if let Ok(sessionInfo) = String::from_utf8(buffer) {
+                    return Poll::Ready(Some(Update::SessionInfo(sessionInfo)));
+                }
             }
 
             // Check for ordinary Telemetry updates
