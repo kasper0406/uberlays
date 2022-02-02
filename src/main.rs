@@ -6,6 +6,7 @@ mod track;
 
 #[macro_use] extern crate log;
 extern crate env_logger;
+extern crate yaml_rust;
 
 use windows::{
     Win32::Foundation::*,
@@ -14,15 +15,13 @@ use windows::{
 
 use log::Level;
 
-use std::thread;
 use std::time::{ Instant };
 
 use async_std::task;
-use async_std::channel::Receiver;
 use async_std::stream::StreamExt;
 
 use overlay::Overlays;
-use iracing::{ Update, Telemetry };
+use iracing::{ Update, Telemetry, SessionInfo };
 
 use iracing::data_collector;
 use iracing::data_collector::IracingConnection;
@@ -126,8 +125,13 @@ fn main() {
                         positions,
                     })).await.unwrap();
                 },
-                data_collector::Update::SessionInfo(session_info) => {
-                    info!["Session info: {}", session_info]
+                data_collector::Update::SessionInfo(session_info_str) => {
+                    info!["Session info: {}", session_info_str];
+
+                    match SessionInfo::try_from(&session_info_str) {
+                        Ok(session_info) => sender.send(Update::Session(session_info)).await.unwrap(),
+                        Err(err) => error!["Failed to parse session info: {}", err],
+                    }
                 }
             }
         }

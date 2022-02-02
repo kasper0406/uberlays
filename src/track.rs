@@ -120,7 +120,7 @@ impl Drawable for TrackOverlay {
                 let length = measure.length();
 
                 for position in &self.state.positions {
-                    if let Some((point, _tangent)) = measure.pos_tan(position * length) {
+                    if let Some((point, _tangent)) = measure.pos_tan((1.0 - position) * length) {
                         let mut car_paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.2, 0.2, 0.5, 1.0), None);
                         car_paint.set_anti_alias(true);
                         canvas.draw_circle(point, 4.0, &car_paint);

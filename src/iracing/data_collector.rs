@@ -142,6 +142,10 @@ impl IracingConnection {
     }
 }
 
+fn latin1_to_string(buffer: &[u8]) -> String {
+    buffer.iter().map(|&c| c as char).collect()
+}
+
 pub enum Update {
     Telemetry(Vec<IracingValue>),
     SessionInfo(String),
@@ -172,9 +176,7 @@ impl Stream for IracingConnection {
                     panic!("Session info was changed while copying!");
                 }
 
-                if let Ok(sessionInfo) = String::from_utf8(buffer) {
-                    return Poll::Ready(Some(Update::SessionInfo(sessionInfo)));
-                }
+                return Poll::Ready(Some(Update::SessionInfo(latin1_to_string(&buffer))))
             }
 
             // Check for ordinary Telemetry updates
