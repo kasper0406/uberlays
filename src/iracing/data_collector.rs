@@ -64,8 +64,10 @@ pub struct IracingConnection {
     header: *mut irsdk_header,
     event_file: HANDLE,
 
-    last_seen: i32,
+    seen_tick_count: i32,
     buffer: Vec<u8>,
+
+    session_info_seen_tick_count: i32,
 }
 
 unsafe impl Send for IracingConnection {}
@@ -112,7 +114,8 @@ impl IracingConnection {
 
         Ok(IracingConnection {
             mem_file, header, event_file,
-            last_seen: 0,
+            seen_tick_count: -1,
+            session_info_seen_tick_count: -1,
             buffer: vec![],
         })
     }
@@ -139,16 +142,45 @@ impl IracingConnection {
     }
 }
 
+fn latin1_to_string(buffer: &[u8]) -> String {
+    buffer.iter().map(|&c| c as char).collect()
+}
+
+pub enum Update {
+    Telemetry(Vec<IracingValue>),
+    SessionInfo(String),
+}
+
 impl Stream for IracingConnection {
-    type Item = Vec<IracingValue>;
+    type Item = Update;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         unsafe {
             // TODO(knielsen): We could be timed here, but for now :shrug:
             let idx = (*self.header).varBuf.iter().enumerate().max_by_key(|(_, buf)| buf.tickCount).unwrap().0;
             let tick_count_before = (*self.header).varBuf[idx].tickCount;
+            let session_info_tick_count = (*self.header).sessionInfoUpdate;
 
-            if tick_count_before <= self.last_seen {
+            // Check for session info updates
+            if session_info_tick_count > self.session_info_seen_tick_count {
+                self.session_info_seen_tick_count = session_info_tick_count;
+                debug!["Updating session info at tick {}", self.session_info_seen_tick_count];
+
+                let len = (*self.header).sessionInfoLen as usize;
+                let offset = (*self.header).sessionInfoOffset as isize;
+                let mut buffer = vec![0u8; len];
+
+                let session_info_ptr = (self.header as *const u8).offset(offset);
+                buffer.copy_from_slice(std::slice::from_raw_parts(session_info_ptr, len));
+                if (*self.header).sessionInfoUpdate != session_info_tick_count {
+                    panic!("Session info was changed while copying!");
+                }
+
+                return Poll::Ready(Some(Update::SessionInfo(latin1_to_string(&buffer))))
+            }
+
+            // Check for ordinary Telemetry updates
+            if tick_count_before <= self.seen_tick_count {
                 // Wait for a new element
                 let waiter = cx.waker().clone();
                 let event_file_clone = self.event_file.clone();
@@ -162,7 +194,7 @@ impl Stream for IracingConnection {
 
                 Poll::Pending
             } else {
-                self.last_seen = tick_count_before;
+                self.seen_tick_count = tick_count_before;
 
                 let new_buffer_length = (*self.header).bufLen as usize;
                 if self.buffer.len() != new_buffer_length {
@@ -172,7 +204,7 @@ impl Stream for IracingConnection {
                 let values_ptr = (self.header as *const u8).offset((*self.header).varBuf[idx].bufOffset as isize);
                 self.buffer.copy_from_slice(std::slice::from_raw_parts(values_ptr, new_buffer_length));
                 if (*self.header).varBuf[idx].tickCount != tick_count_before {
-                    panic!("Data changed while copying! This can't be good!")
+                    panic!("Data changed while copying! This can't be good!");
                 }
 
                 let num_headers = (*self.header).numVars as isize;
@@ -182,17 +214,39 @@ impl Stream for IracingConnection {
                     let var_header = *((var_headers.offset(i)) as *const irsdk_varHeader) as irsdk_varHeader;
 
                     let value_ptr = self.buffer.as_ptr().offset(var_header.offset as isize);
-                    let value = match var_header.type_ {
-                        irsdk_VarType_irsdk_double => IracingValue::Double((*(value_ptr as *const f64)).clone()),
-                        irsdk_VarType_irsdk_int => IracingValue::Int((*(value_ptr as *const i32)).clone()),
-                        irsdk_VarType_irsdk_float => IracingValue::Float((*(value_ptr as *const f32)).clone()),
+                    let count = var_header.count as usize;
+                    let value = match (var_header.type_, count) {
+                        (irsdk_VarType_irsdk_double, 1) => IracingValue::Double((*(value_ptr as *const f64)).clone()),
+                        (irsdk_VarType_irsdk_double, _) => {
+                            let mut values = Vec::with_capacity(count);
+                            for j in 0..count {
+                                values.push((*(value_ptr as *const f64).offset(j as isize)).clone());
+                            }
+                            IracingValue::DoubleVector(values)
+                        },
+                        (irsdk_VarType_irsdk_int, 1) => IracingValue::Int((*(value_ptr as *const i32)).clone()),
+                        (irsdk_VarType_irsdk_int, _) => {
+                            let mut values = Vec::with_capacity(count);
+                            for j in 0..count {
+                                values.push((*(value_ptr as *const i32).offset(j as isize)).clone());
+                            }
+                            IracingValue::IntVector(values)
+                        },
+                        (irsdk_VarType_irsdk_float, 1) => IracingValue::Float((*(value_ptr as *const f32)).clone()),
+                        (irsdk_VarType_irsdk_float, _) => {
+                            let mut values = Vec::with_capacity(count);
+                            for j in 0..count {
+                                values.push((*(value_ptr as *const f32).offset(j as isize)).clone());
+                            }
+                            IracingValue::FloatVector(values)
+                        },
                         _ => IracingValue::Unknown
                     };
 
                     values.push(value);
                 }
 
-                Poll::Ready(Some(values))
+                Poll::Ready(Some(Update::Telemetry(values)))
             }
         }
     }

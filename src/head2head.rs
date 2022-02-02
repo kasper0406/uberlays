@@ -4,15 +4,21 @@ use std::collections::VecDeque;
 
 use skulpin::skia_safe;
 
-use crate::overlay::{ Overlay, Drawable, StateUpdater };
+use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
 use crate::iracing::{ Update, Telemetry };
+
+use async_trait::async_trait;
 
 pub struct Head2HeadOverlay {
     font: skia_safe::Font,
 }
 
+pub struct Head2HeadStateTracker {
+
+}
+
 impl Head2HeadOverlay {
-    pub fn new() -> Head2HeadOverlay {
+    pub fn new() -> (Head2HeadOverlay, Head2HeadStateTracker) {
         let mut font_collection = skia_safe::textlayout::FontCollection::new();
         font_collection.set_default_font_manager(skia_safe::FontMgr::new(), None);
         // let typeface = font_collection.default_fallback().unwrap();
@@ -24,13 +30,24 @@ impl Head2HeadOverlay {
         let mut font = skia_safe::Font::new(typeface, None);
         font.set_subpixel(true);
 
-        Head2HeadOverlay {
-            font
-        }
+        (
+            Head2HeadOverlay {
+                font
+            },
+            Head2HeadStateTracker { },
+        )
     }
 }
 
-impl Overlay for Head2HeadOverlay {}
+impl Overlay for Head2HeadOverlay {
+    fn window_spec(&self) -> WindowSpec {
+        WindowSpec {
+            title: "Head <-> Head".to_string(),
+            width: 300.0,
+            height: 600.0,
+        }
+    }
+}
 
 impl Drawable for Head2HeadOverlay {
     fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
@@ -51,7 +68,15 @@ impl Drawable for Head2HeadOverlay {
     }
 }
 
+#[async_trait]
+impl StateTracker for Head2HeadStateTracker {
+    async fn process(&mut self, update: &Update) {
+        // TODO
+    }
+}
+
 impl StateUpdater for Head2HeadOverlay {
-    fn update_state(self: &mut Self, update: &Update) {
+    fn set_state(self: &mut Self) {
+        // TODO
     }
 }

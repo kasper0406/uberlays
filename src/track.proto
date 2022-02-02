@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package overlay.track;
+
+message Point {
+    double x = 1;
+    double y = 2;
+}
+
+message BezierTriple {
+    Point handle_left = 1;
+    Point control = 2;
+    Point handle_right = 3;
+}
+
+message Track {
+    repeated BezierTriple curve = 1;
+}

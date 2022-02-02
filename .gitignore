@@ -3,3 +3,5 @@ debug/
 .vscode/
 **/*.rs.bk
 *.pdb
+scripts/build
+*.blend1
