@@ -1,8 +1,12 @@
-# Building
+# Uberlays
+
+Overlays for iRacing!
+
+## Building
 
 Run `cargo run`, for release spec use `cargo run --release`.
 
-# Adding a track
+## Adding a track
 
 The process I have been following so far:
 
