@@ -50,6 +50,7 @@ fn main() {
 
     let (sender, receiver) = async_std::channel::unbounded();
 
+    /*
     let data_producer = task::spawn(async move {
         sender.send(Update::Session(SessionInfo {
             track: TrackSpec {
@@ -71,9 +72,8 @@ fn main() {
 
             thread::sleep(std::time::Duration::from_millis(50));
         }
-    });
+    }); */
 
-    /*
     let data_producer = task::spawn(async move {
         let mut maybe_connection: Option<IracingConnection> = None;
         loop {
@@ -144,7 +144,7 @@ fn main() {
                 }
             }
         }
-    }); */
+    });
 
     let overlays = Overlays::new(receiver);
     overlays.start_event_loop();
