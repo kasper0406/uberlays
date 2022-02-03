@@ -36,7 +36,7 @@ jobs:
   release:
     needs: build
     runs-on: windows-latest
-    if: ${{GITHUB_REF_TYPE == 'tag'}}
+    if: ${{env.GITHUB_REF_TYPE == 'tag'}}
     steps:
       - uses: actions/checkout@v2
 
