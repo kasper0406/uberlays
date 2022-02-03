@@ -15,13 +15,14 @@ use windows::{
 
 use log::Level;
 
+use std::thread;
 use std::time::{ Instant };
 
 use async_std::task;
 use async_std::stream::StreamExt;
 
 use overlay::Overlays;
-use iracing::{ Update, Telemetry, SessionInfo };
+use iracing::{ Update, Telemetry, SessionInfo, TrackSpec };
 
 use iracing::data_collector;
 use iracing::data_collector::IracingConnection;
@@ -51,6 +52,13 @@ fn main() {
 
     /*
     let data_producer = task::spawn(async move {
+        sender.send(Update::Session(SessionInfo {
+            track: TrackSpec {
+                name: "hockenheim gp".to_string(),
+                configuration: "Grand Prix".to_string(),
+            }
+        })).await.unwrap();
+
         loop {
             sender.send(Update::Telemetry(Telemetry {
                 timestamp: Instant::now(),
@@ -59,6 +67,7 @@ fn main() {
                 gear: 1,
                 velocity: 0.0,
                 deltas: vec![0.364, 14.340, -2.423, -23.42],
+                positions: vec![0.5],
             })).await.unwrap();
 
             thread::sleep(std::time::Duration::from_millis(50));

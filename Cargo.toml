@@ -27,7 +27,3 @@ features = [
     "Win32_System_Memory",
     "Win32_Security",
 ]
-
-[package.metadata.patch.rafx]
-version = "0.0.14"
-patches = [ "refx-api.patch" ]
