@@ -93,7 +93,7 @@ impl Drawable for TrackOverlay {
 
             path.move_to(Point::new(
                 scale(prev_point.control.as_ref().unwrap().x, coord),
-                 scale(prev_point.control.as_ref().unwrap().y, coord)));
+                scale(1.0 - prev_point.control.as_ref().unwrap().y, coord)));
             for i in 1..track.curve.len() {
                 let next_point = &track.curve[i];
 
@@ -101,19 +101,20 @@ impl Drawable for TrackOverlay {
                 path.cubic_to(
                     Point::new(
                         scale(prev_point.handle_right.as_ref().unwrap().x, coord),
-                        scale(prev_point.handle_right.as_ref().unwrap().y, coord)
+                        scale(1.0 - prev_point.handle_right.as_ref().unwrap().y, coord)
                     ),
                     Point::new(
                         scale(next_point.handle_left.as_ref().unwrap().x, coord),
-                        scale(next_point.handle_left.as_ref().unwrap().y, coord)
+                        scale(1.0 - next_point.handle_left.as_ref().unwrap().y, coord)
                     ),
                     Point::new(
                         scale(next_point.control.as_ref().unwrap().x, coord),
-                        scale(next_point.control.as_ref().unwrap().y, coord)
+                        scale(1.0 - next_point.control.as_ref().unwrap().y, coord)
                     ));
                 
                 prev_point = &next_point;
             }
+            canvas.draw_path(&path, &track_paint);
 
             let mut measures = ContourMeasureIter::from_path(&path, false, 1.0);
             if let Some(measure) = measures.next() {
@@ -121,14 +122,12 @@ impl Drawable for TrackOverlay {
 
                 for position in &self.state.positions {
                     if let Some((point, _tangent)) = measure.pos_tan((1.0 - position) * length) {
-                        let mut car_paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.2, 0.2, 0.5, 1.0), None);
+                        let mut car_paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.2, 0.2, 1.0, 1.0), None);
                         car_paint.set_anti_alias(true);
                         canvas.draw_circle(point, 4.0, &car_paint);
                     }
                 }
             }
-
-            canvas.draw_path(&path, &track_paint);
         }
     }
 }
