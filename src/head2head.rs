@@ -1,11 +1,11 @@
-use async_std::channel::Receiver;
-use std::time::{ Duration, Instant };
-use std::collections::VecDeque;
+
+
+
 
 use skulpin::skia_safe;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
-use crate::iracing::{ Update, Telemetry };
+use crate::iracing::{ Update };
 
 use async_trait::async_trait;
 
@@ -50,10 +50,10 @@ impl Overlay for Head2HeadOverlay {
 }
 
 impl Drawable for Head2HeadOverlay {
-    fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
+    fn draw(&mut self, canvas: &mut skia_safe::Canvas, _coord: &skulpin::CoordinateSystemHelper) {
         canvas.clear(skia_safe::Color::from_argb(100, 100, 255, 255));
 
-        let mut paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.0, 0.0, 0.0, 1.0), None);
+        let paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.0, 0.0, 0.0, 1.0), None);
                     // paint.set_anti_alias(true);
                     //paint.set_style(skia_safe::paint::Style::Stroke);
                     // paint.set_stroke_width(1.0);
@@ -70,13 +70,13 @@ impl Drawable for Head2HeadOverlay {
 
 #[async_trait]
 impl StateTracker for Head2HeadStateTracker {
-    async fn process(&mut self, update: &Update) {
+    async fn process(&mut self, _update: &Update) {
         // TODO
     }
 }
 
 impl StateUpdater for Head2HeadOverlay {
-    fn set_state(self: &mut Self) {
+    fn set_state(&mut self) {
         // TODO
     }
 }

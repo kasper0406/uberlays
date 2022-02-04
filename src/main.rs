@@ -9,20 +9,19 @@ extern crate env_logger;
 extern crate yaml_rust;
 
 use windows::{
-    Win32::Foundation::*,
     Win32::System::Threading::*,
 };
 
-use log::Level;
 
-use std::thread;
+
+
 use std::time::{ Instant };
 
 use async_std::task;
 use async_std::stream::StreamExt;
 
 use overlay::Overlays;
-use iracing::{ Update, Telemetry, SessionInfo, TrackSpec };
+use iracing::{ Update, Telemetry, SessionInfo };
 
 use iracing::data_collector;
 use iracing::data_collector::IracingConnection;
@@ -111,11 +110,11 @@ fn main() {
             match package {
                 data_collector::Update::Telemetry(telemetry) => {
                     let throttle = extract_value(&telemetry, throttle_header, Box::new(|val| match val {
-                        IracingValue::Float(throttle) => throttle.clone(),
+                        IracingValue::Float(throttle) => *throttle,
                         _ => 0.0
                     }));
                     let brake = extract_value(&telemetry, brake_header, Box::new(|val| match val {
-                        IracingValue::Float(brake) => brake.clone(),
+                        IracingValue::Float(brake) => *brake,
                         _ => 0.0
                     }));
                     let positions = extract_value(&telemetry, positions_header, Box::new(|val| match val {

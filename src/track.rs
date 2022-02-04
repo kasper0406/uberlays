@@ -1,16 +1,16 @@
 use async_std::channel;
 use async_std::channel::{ Sender, Receiver };
-use std::time::{ Duration, Instant };
-use std::collections::VecDeque;
+
+
 
 use skulpin::skia_safe;
 use skulpin::skia_safe::Point;
 use skulpin::skia_safe::Path;
-use skulpin::skia_safe::ContourMeasure;
+
 use skulpin::skia_safe::ContourMeasureIter;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
-use crate::iracing::{ Update, Telemetry, TrackSpec };
+use crate::iracing::{ Update, TrackSpec };
 
 use async_std::fs::File;
 use async_std::prelude::*;
@@ -50,7 +50,7 @@ impl TrackOverlay {
             },
             TrackOverlayState {
                 sender,
-                current_state: start_state.clone(),
+                current_state: start_state,
                 last_seen_track: None,
             }
         )
@@ -84,7 +84,7 @@ impl Drawable for TrackOverlay {
         track_paint.set_stroke_width(7.0);
 
         if let Some(track) = &self.state.track {
-            if track.curve.len() == 0 {
+            if track.curve.is_empty() {
                 return;
             }
 
@@ -112,7 +112,7 @@ impl Drawable for TrackOverlay {
                         scale(1.0 - next_point.control.as_ref().unwrap().y, coord)
                     ));
                 
-                prev_point = &next_point;
+                prev_point = next_point;
             }
             canvas.draw_path(&path, &track_paint);
 
@@ -158,7 +158,7 @@ impl StateTracker for TrackOverlayState {
 }
 
 impl StateUpdater for TrackOverlay {
-    fn set_state(self: &mut Self) {
+    fn set_state(&mut self) {
         if let Ok(new_state) = self.receiver.try_recv() {
             self.state = new_state;
         }
@@ -181,5 +181,5 @@ async fn load_track(track: &str, layout: &str) -> Result<Track, String> {
     track_file.read_to_end(&mut buffer).await
         .map_err(|_err| format!["Failed to read file contents of {}", path_clone])?;
     Track::decode(&*buffer)
-        .map_err(|_err| format!["Map file is in wrong format!"])
+        .map_err(|_err| "Map file is in wrong format!".to_string())
 }
