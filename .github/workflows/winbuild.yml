@@ -22,7 +22,8 @@ jobs:
         with:
           path: |
             ./target
-            ~/.cargo
+            ~/.cargo/registry
+            ~/.cargo/git
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
@@ -50,7 +51,8 @@ jobs:
         with:
           path: |
             ./target
-            ~/.cargo
+            ~/.cargo/registry
+            ~/.cargo/git
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
@@ -75,7 +77,8 @@ jobs:
         with:
           path: |
             ./target
-            ~/.cargo
+            ~/.cargo/registry
+            ~/.cargo/git
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
