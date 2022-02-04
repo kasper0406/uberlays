@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use async_std::channel;
-use async_std::channel::{ Receiver, Sender };
+
+use async_std::channel::{ Receiver };
 
 use skulpin::skia_safe;
-use skulpin::{CoordinateSystemHelper, LogicalSize};
+use skulpin::{CoordinateSystemHelper};
 use skulpin::winit;
 use skulpin::rafx::api::RafxExtents2D;
 
@@ -23,11 +23,11 @@ use crate::track::TrackOverlay;
 use async_trait::async_trait;
 
 pub trait Drawable {
-    fn draw(self: &mut Self, canvas: &mut skia_safe::Canvas, coord: &CoordinateSystemHelper);
+    fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &CoordinateSystemHelper);
 }
 
 pub trait StateUpdater {
-    fn set_state(self: &mut Self);
+    fn set_state(&mut self);
 }
 
 pub struct WindowSpec {
@@ -106,7 +106,7 @@ impl Overlays {
     }
 
     pub fn start_event_loop(mut self) {
-        self.event_loop.run(move |event, window, control_flow| {
+        self.event_loop.run(move |event, _window, control_flow| {
             match event {
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::CloseRequested,
@@ -114,7 +114,7 @@ impl Overlays {
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
 
                 winit::event::Event::MainEventsCleared => {
-                    for (_window_id, mut overlay) in &mut self.overlays {
+                    for (_window_id, overlay) in &mut self.overlays {
                         overlay.overlay.set_state();
                         overlay.window.request_redraw();
                     }
@@ -162,7 +162,7 @@ impl OverlayImpl {
             .with_always_on_top(true)
             .with_transparent(true)
             .with_resizable(true)
-            .build(&event_loop)
+            .build(event_loop)
             .expect("Failed to create overlay window");
 
         let window_size = window.inner_size();
@@ -171,7 +171,7 @@ impl OverlayImpl {
             height: window_size.height,
         };
 
-        let mut renderer = skulpin::RendererBuilder::new()
+        let renderer = skulpin::RendererBuilder::new()
             .coordinate_system(skulpin::CoordinateSystem::Logical)
             .build(&window, window_extents)
             .unwrap();

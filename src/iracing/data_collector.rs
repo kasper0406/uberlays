@@ -3,14 +3,13 @@
 #![allow(non_snake_case)]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use std::fs::File;
-use std::ptr;
-use std::mem;
+
+
+
 use windows::{
     Win32::Foundation::*,
     Win32::System::Threading::*,
     Win32::System::Memory::*,
-    Win32::Security::SECURITY_ATTRIBUTES,
 };
 use std::ffi::OsStr;
 use std::ffi::CStr;
@@ -183,7 +182,7 @@ impl Stream for IracingConnection {
             if tick_count_before <= self.seen_tick_count {
                 // Wait for a new element
                 let waiter = cx.waker().clone();
-                let event_file_clone = self.event_file.clone();
+                let event_file_clone = self.event_file;
                 task::spawn(async move {
                     match WaitForSingleObject(event_file_clone, u32::MAX) {
                         0x0 => waiter.wake(),
@@ -216,27 +215,27 @@ impl Stream for IracingConnection {
                     let value_ptr = self.buffer.as_ptr().offset(var_header.offset as isize);
                     let count = var_header.count as usize;
                     let value = match (var_header.type_, count) {
-                        (irsdk_VarType_irsdk_double, 1) => IracingValue::Double((*(value_ptr as *const f64)).clone()),
+                        (irsdk_VarType_irsdk_double, 1) => IracingValue::Double(*(value_ptr as *const f64)),
                         (irsdk_VarType_irsdk_double, _) => {
                             let mut values = Vec::with_capacity(count);
                             for j in 0..count {
-                                values.push((*(value_ptr as *const f64).offset(j as isize)).clone());
+                                values.push(*(value_ptr as *const f64).add(j));
                             }
                             IracingValue::DoubleVector(values)
                         },
-                        (irsdk_VarType_irsdk_int, 1) => IracingValue::Int((*(value_ptr as *const i32)).clone()),
+                        (irsdk_VarType_irsdk_int, 1) => IracingValue::Int(*(value_ptr as *const i32)),
                         (irsdk_VarType_irsdk_int, _) => {
                             let mut values = Vec::with_capacity(count);
                             for j in 0..count {
-                                values.push((*(value_ptr as *const i32).offset(j as isize)).clone());
+                                values.push(*(value_ptr as *const i32).add(j));
                             }
                             IracingValue::IntVector(values)
                         },
-                        (irsdk_VarType_irsdk_float, 1) => IracingValue::Float((*(value_ptr as *const f32)).clone()),
+                        (irsdk_VarType_irsdk_float, 1) => IracingValue::Float(*(value_ptr as *const f32)),
                         (irsdk_VarType_irsdk_float, _) => {
                             let mut values = Vec::with_capacity(count);
                             for j in 0..count {
-                                values.push((*(value_ptr as *const f32).offset(j as isize)).clone());
+                                values.push(*(value_ptr as *const f32).add(j));
                             }
                             IracingValue::FloatVector(values)
                         },

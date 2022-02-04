@@ -4,7 +4,7 @@ use std::time::{ Duration, Instant };
 use std::collections::VecDeque;
 
 use skulpin::skia_safe;
-use skulpin::LogicalSize;
+
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
 use crate::iracing::{ Update, Telemetry };
@@ -116,7 +116,7 @@ impl StateTracker for PlotStateTracker {
 }
 
 impl StateUpdater for PlotOverlay {
-    fn set_state(self: &mut Self) {
+    fn set_state(&mut self) {
         if let Ok(update) = self.receiver.try_recv() {
             let now = Instant::now();
             for plot in &mut self.plots {
@@ -132,7 +132,7 @@ impl StateUpdater for PlotOverlay {
                 StateUpdate::AddMeasurement(telemetry) => {
                     for plot in &mut self.plots {
                         plot.measurements.push_back(PlotPoint {
-                            time: telemetry.timestamp.clone(),
+                            time: telemetry.timestamp,
                             value: (plot.extractor)(&telemetry),
                         });
                     }
