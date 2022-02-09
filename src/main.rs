@@ -21,7 +21,7 @@ use async_std::task;
 use async_std::stream::StreamExt;
 
 use overlay::Overlays;
-use iracing::{ Update, Telemetry, SessionInfo };
+use iracing::{ Update, Telemetry, SessionInfo, TrackSpec };
 
 use iracing::data_collector;
 use iracing::data_collector::IracingConnection;
@@ -53,12 +53,14 @@ fn main() {
     let data_producer = task::spawn(async move {
         sender.send(Update::Session(SessionInfo {
             track: TrackSpec {
-                name: "hockenheim gp".to_string(),
+                name: "monza gp".to_string(),
                 configuration: "Grand Prix".to_string(),
             }
         })).await.unwrap();
 
+        let mut position = 0.0;
         loop {
+            position = (position + 0.001) % 1.0;
             sender.send(Update::Telemetry(Telemetry {
                 timestamp: Instant::now(),
                 throttle: 0.0,
@@ -66,10 +68,10 @@ fn main() {
                 gear: 1,
                 velocity: 0.0,
                 deltas: vec![0.364, 14.340, -2.423, -23.42],
-                positions: vec![0.5],
+                positions: vec![position],
             })).await.unwrap();
 
-            thread::sleep(std::time::Duration::from_millis(50));
+            std::thread::sleep(std::time::Duration::from_millis(50));
         }
     }); */
 

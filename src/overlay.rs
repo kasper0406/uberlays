@@ -63,19 +63,19 @@ impl Overlays {
 
         let (plot_overlay, plot_overlay_state) = PlotOverlay::new();
         let (track_overlay, track_overlay_state) = TrackOverlay::new();
-        let (head2head_overlay, head2head_overlay_state) = Head2HeadOverlay::new();
+        // let (head2head_overlay, head2head_overlay_state) = Head2HeadOverlay::new();
 
         let overlays: Vec<Box<dyn Overlay>> = vec![
             Box::new(plot_overlay),
             Box::new(track_overlay),
-            Box::new(head2head_overlay),
+            // Box::new(head2head_overlay),
         ];
 
         let state_updater = async_std::task::spawn(async move {
             let mut state_trackers: Vec<Box<dyn StateTracker + Send + Sync>> = vec![
                 Box::new(plot_overlay_state),
                 Box::new(track_overlay_state),
-                Box::new(head2head_overlay_state),
+                // Box::new(head2head_overlay_state),
             ];
 
             // TODO(knielsen): Do this in parallel!

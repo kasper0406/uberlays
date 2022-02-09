@@ -27,7 +27,7 @@ The process I have been following so far:
 5. Run the following to generate the map description (assuming the blender file 
    is called `[...]\hungaroring\grandprix.blend`:
    ```
-   blender --b .\media\tracks\hungaroring\grandprix.blend -P .\scripts\blender.py
+   blender -b .\media\tracks\hungaroring\grandprix.blend -P .\scripts\blender.py
    ```
 6. Move the resulting `output.dat` file to the desired location. In this case
    `media/tracks/hungaroring/grandprix.dat`.
