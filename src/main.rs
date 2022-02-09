@@ -59,12 +59,14 @@ fn main() {
         })).await.unwrap();
 
         let mut position = 0.0;
+        let mut brake = 0.0;
         loop {
             position = (position + 0.001) % 1.0;
+            brake = (brake + 0.05) % 1.05;
             sender.send(Update::Telemetry(Telemetry {
                 timestamp: Instant::now(),
                 throttle: 0.0,
-                brake: 0.0,
+                brake,
                 gear: 1,
                 velocity: 0.0,
                 deltas: vec![0.364, 14.340, -2.423, -23.42],

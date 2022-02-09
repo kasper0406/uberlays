@@ -76,28 +76,31 @@ impl Overlay for PlotOverlay {
 
 impl Drawable for PlotOverlay {
     fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
+        let margin = 2;
         canvas.clear(skia_safe::Color::from_argb(100, 255, 255, 255));
 
         let now = Instant::now();
         for plot in &self.plots {
             let mut paint = skia_safe::Paint::new(plot.color, None);
-                    paint.set_anti_alias(true);
-                    paint.set_style(skia_safe::paint::Style::Stroke);
-                    paint.set_stroke_width(2.0);
+            paint.set_anti_alias(true);
+            paint.set_style(skia_safe::paint::Style::Stroke);
+            paint.set_stroke_width(4.0);
 
+            let mut prev_point = None;
             for point in &plot.measurements {
                 if now.duration_since(point.time) > self.duration {
                     continue;
                 }
 
                 let x = ((self.duration - now.duration_since(point.time)).as_secs_f32() / self.duration.as_secs_f32()) * (coord.window_logical_size().width as f32);
-                let y = (1f32 - (point.value as f32)) * (coord.window_logical_size().height as f32);
+                let y = (1f32 - (point.value as f32)) * ((coord.window_logical_size().height - (2 * margin)) as f32) + (margin as f32);
+                let skia_point = skia_safe::Point::new(x, y);
 
-                canvas.draw_circle(
-                    skia_safe::Point::new(x, y),
-                    2.0,
-                    &paint,
-                );
+                if let Some(prev_skia_point) = prev_point {
+                    canvas.draw_line(prev_skia_point, skia_point, &paint);
+                }
+
+                prev_point = Some(skia_point);
             }
         }
     }
