@@ -1,4 +1,4 @@
-use yaml_rust::YamlLoader;
+use yaml_rust::{YamlLoader, Yaml};
 
 pub mod data_collector;
 
@@ -41,13 +41,20 @@ impl TryFrom<&String> for SessionInfo {
     type Error = String;
 
     fn try_from(str: &String) -> Result<Self, Self::Error> {
+        if str.len() == 0 {
+            return Err(String::from("Empty Session Info"));
+        }
+
         let parsed = &YamlLoader::load_from_str(str)
                 .map_err(|err| format!("Failed to parse yaml: {:?}", err))?[0];
 
         let track_name = parsed["WeekendInfo"]["TrackName"].as_str()
                 .ok_or("TrackName not found")?;
-        let track_configuration = parsed["WeekendInfo"]["TrackConfigName"].as_str()
-                .ok_or("TrackConfigName not found")?;
+        let track_configuration = match &parsed["WeekendInfo"]["TrackConfigName"] {
+            Yaml::String(track_config_name) => Ok(track_config_name.clone()),
+            Yaml::Null => Ok("Grand Prix".to_string()),
+            _ => Err("Unspecified track configuration!")
+        }?;
 
         Ok(SessionInfo {
             track: TrackSpec {
