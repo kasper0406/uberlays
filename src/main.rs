@@ -78,71 +78,76 @@ fn main() {
     }); */
 
     let data_producer = task::spawn(async move {
-        let mut maybe_connection: Option<IracingConnection> = None;
         loop {
-            match IracingConnection::new() {
-                Ok(new_connection) => {
-                    maybe_connection = Some(new_connection);
-                    break;
-                },
-                Err(IracingConnectionError::NotRunning) => {
-                    info!("iRacing not detected. Retrying!");
-                    std::thread::sleep(std::time::Duration::from_secs(1));
+            let mut maybe_connection: Option<IracingConnection> = None;
+            loop {
+                match IracingConnection::new() {
+                    Ok(new_connection) => {
+                        maybe_connection = Some(new_connection);
+                        break;
+                    },
+                    Err(IracingConnectionError::NotRunning) => {
+                        info!("iRacing not detected. Retrying!");
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                    }
                 }
             }
-        }
-        let mut connection = maybe_connection.unwrap();
+            let mut connection = maybe_connection.unwrap();
 
-        info!("Established connection to iRacing");
+            info!("Established connection to iRacing");
 
-        let headers = connection.headers();
-        // info!["Headers: {:?}", headers];
-        let throttle_header = headers.iter().enumerate()
-                .find(|(_, header)| header.name == "Throttle");
-        let brake_header = headers.iter().enumerate()
-                .find(|(_, header)| header.name == "Brake");
-        let positions_header = headers.iter().enumerate()
-                .find(|(_, header)| header.name == "CarIdxLapDistPct");
+            let headers = connection.headers();
+            // info!["Headers: {:?}", headers];
+            let throttle_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "Throttle");
+            let brake_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "Brake");
+            let positions_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "CarIdxLapDistPct");
 
-        let mut packages = 0;
-        while let Some(package) = connection.next().await {
-            packages += 1;
-            if packages % 60 == 0 {
-                info!["Package count: {}", packages];
-            }
+            let mut packages = 0;
+            while let Some(package) = connection.next().await {
+                packages += 1;
+                if packages % 60 == 0 {
+                    info!["Package count: {}", packages];
+                }
 
-            match package {
-                data_collector::Update::Telemetry(telemetry) => {
-                    let throttle = extract_value(&telemetry, throttle_header, Box::new(|val| match val {
-                        IracingValue::Float(throttle) => *throttle,
-                        _ => 0.0
-                    }));
-                    let brake = extract_value(&telemetry, brake_header, Box::new(|val| match val {
-                        IracingValue::Float(brake) => *brake,
-                        _ => 0.0
-                    }));
-                    let positions = extract_value(&telemetry, positions_header, Box::new(|val| match val {
-                        IracingValue::FloatVector(positions) => positions.clone(),
-                        _ => vec![]
-                    }));
+                match package {
+                    data_collector::Update::Telemetry(telemetry) => {
+                        let throttle = extract_value(&telemetry, throttle_header, Box::new(|val| match val {
+                            IracingValue::Float(throttle) => *throttle,
+                            _ => 0.0
+                        }));
+                        let brake = extract_value(&telemetry, brake_header, Box::new(|val| match val {
+                            IracingValue::Float(brake) => *brake,
+                            _ => 0.0
+                        }));
+                        let positions = extract_value(&telemetry, positions_header, Box::new(|val| match val {
+                            IracingValue::FloatVector(positions) => positions.clone(),
+                            _ => vec![]
+                        }));
 
-                    let timestamp = Instant::now();
-                    sender.send(Update::Telemetry(Telemetry {
-                        timestamp,
-                        throttle,
-                        brake,
-                        gear: 1,
-                        velocity: 0.0,
-                        deltas: vec![0.364, 14.340, -2.423, -23.42],
-                        positions,
-                    })).await.unwrap();
-                },
-                data_collector::Update::SessionInfo(session_info_str) => {
-                    info!["Session info: {}", session_info_str];
+                        let timestamp = Instant::now();
+                        sender.send(Update::Telemetry(Telemetry {
+                            timestamp,
+                            throttle,
+                            brake,
+                            gear: 1,
+                            velocity: 0.0,
+                            deltas: vec![],
+                            positions,
+                        })).await.unwrap();
+                    },
+                    data_collector::Update::SessionInfo(session_info_str) => {
+                        info!["Session info: {}", session_info_str];
 
-                    match SessionInfo::try_from(&session_info_str) {
-                        Ok(session_info) => sender.send(Update::Session(session_info)).await.unwrap(),
-                        Err(err) => error!["Failed to parse session info: {}", err],
+                        let session_info_sender = sender.clone();
+                        task::spawn(async move {
+                            match SessionInfo::try_from(&session_info_str) {
+                                Ok(session_info) => session_info_sender.send(Update::Session(session_info)).await.unwrap(),
+                                Err(err) => error!["Failed to parse session info: {}", err],
+                            }
+                        });
                     }
                 }
             }

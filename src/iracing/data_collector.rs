@@ -6,6 +6,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 
 
+use async_std::sync::Mutex;
 use windows::{
     Win32::Foundation::*,
     Win32::System::Threading::*,
@@ -14,6 +15,8 @@ use windows::{
 use std::ffi::OsStr;
 use std::ffi::CStr;
 use std::os::windows::ffi::OsStrExt;
+use std::sync::Arc;
+use std::time::Duration;
 use async_std::task;
 use async_std::task::{Context, Poll};
 use async_std::stream::Stream;
@@ -67,6 +70,8 @@ pub struct IracingConnection {
     buffer: Vec<u8>,
 
     session_info_seen_tick_count: i32,
+
+    should_disconnect: Arc<Mutex<bool>>,
 }
 
 unsafe impl Send for IracingConnection {}
@@ -116,6 +121,7 @@ impl IracingConnection {
             seen_tick_count: -1,
             session_info_seen_tick_count: -1,
             buffer: vec![],
+            should_disconnect: Arc::new(Mutex::new(false)),
         })
     }
 
@@ -150,10 +156,18 @@ pub enum Update {
     SessionInfo(String),
 }
 
+const EVENT_TIMEOUT: Duration = Duration::from_secs(2);
+
 impl Stream for IracingConnection {
     type Item = Update;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if let Some(should_disconnect) =  self.should_disconnect.try_lock() {
+            if *should_disconnect {
+                return Poll::Ready(None);
+            }
+        }
+
         unsafe {
             // TODO(knielsen): We could be timed here, but for now :shrug:
             let idx = (*self.header).varBuf.iter().enumerate().max_by_key(|(_, buf)| buf.tickCount).unwrap().0;
@@ -182,11 +196,16 @@ impl Stream for IracingConnection {
             if tick_count_before <= self.seen_tick_count {
                 // Wait for a new element
                 let waiter = cx.waker().clone();
+                let disconnect_setter = self.should_disconnect.clone();
                 let event_file_clone = self.event_file;
                 task::spawn(async move {
-                    match WaitForSingleObject(event_file_clone, u32::MAX) {
+                    match WaitForSingleObject(event_file_clone, EVENT_TIMEOUT.as_millis().try_into().unwrap()) {
                         0x0 => waiter.wake(),
-                        0x102 => panic!("TIMEOUT!"),
+                        0x102 => {
+                            info!["Disconnected from iRacing after event timeout"];
+                            *disconnect_setter.lock().await = true;
+                            waiter.wake()
+                        },
                         err => panic!("Some other failure: {}, detailed: {:?}", err, GetLastError())
                     };
                 });
