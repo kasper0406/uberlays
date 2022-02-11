@@ -1,0 +1,15 @@
+# Changelog
+
+## 0.1.0 (2022-02-11)
+
+
+### Features
+
+* CI checks and binary publishing ([#3](https://github.com/kasper0406/uberlays/issues/3)) ([faf4aca](https://github.com/kasper0406/uberlays/commit/faf4aca5983eae35d7827c9814e1274d684ab208))
+* Created a zipped distribution including track files ([#10](https://github.com/kasper0406/uberlays/issues/10)) ([76a5e17](https://github.com/kasper0406/uberlays/commit/76a5e1779fecda82ac7c840cc74cedc4bd052cde))
+* Draw solid lines between telemetry points ([#8](https://github.com/kasper0406/uberlays/issues/8)) ([8a5c38e](https://github.com/kasper0406/uberlays/commit/8a5c38edfe8b1c183c6b6ded29c618b773dea3da))
+
+
+### Bug Fixes
+
+* iRacing connection regarding switching session ([#9](https://github.com/kasper0406/uberlays/issues/9)) ([4365737](https://github.com/kasper0406/uberlays/commit/4365737c975b045aca1ce409bb55822c4bade120))
