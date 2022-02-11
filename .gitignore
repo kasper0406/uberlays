@@ -5,3 +5,4 @@ debug/
 *.pdb
 scripts/build
 *.blend1
+build/
