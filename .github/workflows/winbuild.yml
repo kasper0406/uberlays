@@ -88,8 +88,17 @@ jobs:
         uses: microsoft/setup-msbuild@v1.0.2
 
       - name: Build (release)
-        run: cargo build --release
-      
+        run: cargo rustc --release -- -Clink-args="/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
+
+      - name: Create distribution directory
+        run: mkdir -p build/uberlays
+      - name: Copy Uberlays binary
+        run: cp .\target\release\uberlays.exe build/uberlays
+      - name: Copy media contents
+        run: Copy-Item -Path ".\media" -Destination ".\build\uberlays" -Recurse -Filter "*.dat"
+      - name: Zip distribution
+        run: Compress-Archive -Path .\build\uberlays -DestinationPath build\uberlays.zip
+
       - uses: softprops/action-gh-release@v1
         with:
-          files: ./target/release/uberlays.exe
+          files: ./build/uberlays.zip
