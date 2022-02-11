@@ -50,6 +50,7 @@ pub enum IracingValue {
     IntVector(Vec<i32>),
     Float(f32),
     FloatVector(Vec<f32>),
+    Boolean(bool),
 
     Unknown
 }
@@ -258,6 +259,7 @@ impl Stream for IracingConnection {
                             }
                             IracingValue::FloatVector(values)
                         },
+                        (irsdk_bool, 1) => IracingValue::Boolean(*(value_ptr as *const u8) != 0),
                         _ => IracingValue::Unknown
                     };
 

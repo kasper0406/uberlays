@@ -105,6 +105,17 @@ fn main() {
             let positions_header = headers.iter().enumerate()
                     .find(|(_, header)| header.name == "CarIdxLapDistPct");
 
+            let is_in_garage_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "IsInGarage");
+            let is_on_track_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "IsOnTrack");
+            let is_on_track_car_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "IsOnTrackCar");
+
+            let mut old_is_in_garage = false;
+            let mut old_is_on_track = false;
+            let mut old_is_on_track_car = false;
+
             let mut packages = 0;
             while let Some(package) = connection.next().await {
                 packages += 1;
@@ -126,6 +137,15 @@ fn main() {
                             IracingValue::FloatVector(positions) => positions.clone(),
                             _ => vec![]
                         }));
+
+                        let is_in_garage = extract_value(&telemetry, is_in_garage_header, Box::new(|val| match val {
+                            IracingValue::Boolean(is_in_garage) => *is_in_garage,
+                            _ => false,
+                        }));
+                        if old_is_in_garage != is_in_garage {
+                            info!["In garage: {}", is_in_garage];
+                            old_is_in_garage = is_in_garage;
+                        }
 
                         let timestamp = Instant::now();
                         sender.send(Update::Telemetry(Telemetry {
