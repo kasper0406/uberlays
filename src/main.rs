@@ -104,17 +104,8 @@ fn main() {
                     .find(|(_, header)| header.name == "Brake");
             let positions_header = headers.iter().enumerate()
                     .find(|(_, header)| header.name == "CarIdxLapDistPct");
-
-            let is_in_garage_header = headers.iter().enumerate()
-                    .find(|(_, header)| header.name == "IsInGarage");
             let is_on_track_header = headers.iter().enumerate()
                     .find(|(_, header)| header.name == "IsOnTrack");
-            let is_on_track_car_header = headers.iter().enumerate()
-                    .find(|(_, header)| header.name == "IsOnTrackCar");
-
-            let mut old_is_in_garage = false;
-            let mut old_is_on_track = false;
-            let mut old_is_on_track_car = false;
 
             let mut packages = 0;
             while let Some(package) = connection.next().await {
@@ -138,14 +129,10 @@ fn main() {
                             _ => vec![]
                         }));
 
-                        let is_in_garage = extract_value(&telemetry, is_in_garage_header, Box::new(|val| match val {
-                            IracingValue::Boolean(is_in_garage) => *is_in_garage,
+                        let is_on_track = extract_value(&telemetry, is_on_track_header, Box::new(|val| match val {
+                            IracingValue::Boolean(is_on_track) => *is_on_track,
                             _ => false,
                         }));
-                        if old_is_in_garage != is_in_garage {
-                            info!["In garage: {}", is_in_garage];
-                            old_is_in_garage = is_in_garage;
-                        }
 
                         let timestamp = Instant::now();
                         sender.send(Update::Telemetry(Telemetry {
@@ -156,6 +143,7 @@ fn main() {
                             velocity: 0.0,
                             deltas: vec![],
                             positions,
+                            is_on_track,
                         })).await.unwrap();
                     },
                     data_collector::Update::SessionInfo(session_info_str) => {
