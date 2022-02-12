@@ -64,9 +64,22 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release-please.outputs.release_created }}
+      tag_name: ${{ steps.release-please.outputs.tag_name }}
+    steps:
+      - uses: google-github-actions/release-please-action@v3
+        id: release-please
+        with:
+          release-type: rust
+          package-name: release-please-action
+
   release:
+    needs: release-please
     runs-on: windows-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: needs.release-please.outputs.release_created
     steps:
       - uses: actions/checkout@v2
 
@@ -99,6 +112,9 @@ jobs:
       - name: Zip distribution
         run: Compress-Archive -Path .\build\uberlays -DestinationPath build\uberlays.zip
 
-      - uses: softprops/action-gh-release@v1
+      - uses: svenstaro/upload-release-action@v2
         with:
-          files: ./build/uberlays.zip
+          file: ./build/uberlays.zip
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          asset_name: uberlays-$tag.zip
+          tag: ${{ needs.release-please.outputs.tag_name }}
