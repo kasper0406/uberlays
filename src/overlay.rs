@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 
 use async_std::channel::{ Receiver };
+use async_std::sync::Arc;
+use async_std::sync::Mutex;
 
 use skulpin::skia_safe;
 use skulpin::{CoordinateSystemHelper};
@@ -27,7 +29,7 @@ pub trait Drawable {
 }
 
 pub trait StateUpdater {
-    fn set_state(&mut self);
+    fn set_state(&mut self, window: &Window);
 }
 
 pub struct WindowSpec {
@@ -72,17 +74,26 @@ impl Overlays {
         ];
 
         let state_updater = async_std::task::spawn(async move {
-            let mut state_trackers: Vec<Box<dyn StateTracker + Send + Sync>> = vec![
-                Box::new(plot_overlay_state),
-                Box::new(track_overlay_state),
-                // Box::new(head2head_overlay_state),
+            let mut state_trackers: Vec<Arc<Mutex<dyn StateTracker + Send + Sync>>> = vec![
+                Arc::new(Mutex::new(plot_overlay_state)),
+                Arc::new(Mutex::new(track_overlay_state)),
+                // Arc::new(Mutex::new(head2head_overlay_state),
             ];
 
-            // TODO(knielsen): Do this in parallel!
             while let Ok(update) = state_receiver.recv().await {
+                let arc_update = Arc::new(update);
+                let mut tasks = Vec::with_capacity(state_trackers.len());
+
                 for state_tracker in &mut state_trackers {
-                    let test = state_tracker.process(&update);
-                    test.await;
+                    let task_update = arc_update.clone();
+                    let cloned_state_tracker = state_tracker.clone();
+
+                    tasks.push(async_std::task::spawn(async move {
+                        cloned_state_tracker.lock().await.process(&task_update).await;
+                    }));
+                }
+                for task in tasks {
+                    task.await;
                 }
             }
         });
@@ -115,7 +126,7 @@ impl Overlays {
 
                 winit::event::Event::MainEventsCleared => {
                     for (_window_id, overlay) in &mut self.overlays {
-                        overlay.overlay.set_state();
+                        overlay.overlay.set_state(&overlay.window);
                         overlay.window.request_redraw();
                     }
                 },
@@ -162,6 +173,7 @@ impl OverlayImpl {
             .with_always_on_top(true)
             .with_transparent(true)
             .with_resizable(true)
+            .with_visible(false)
             .build(event_loop)
             .expect("Failed to create overlay window");
 

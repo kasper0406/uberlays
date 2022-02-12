@@ -1,8 +1,5 @@
-
-
-
-
 use skulpin::skia_safe;
+use skulpin::winit::window::Window;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
 use crate::iracing::{ Update };
@@ -76,7 +73,7 @@ impl StateTracker for Head2HeadStateTracker {
 }
 
 impl StateUpdater for Head2HeadOverlay {
-    fn set_state(&mut self) {
+    fn set_state(&mut self, window: &Window) {
         // TODO
     }
 }

@@ -1,5 +1,6 @@
 use async_std::channel;
 use async_std::channel::{ Sender, Receiver };
+use skulpin::winit::window::Window;
 use std::time::{ Duration, Instant };
 use std::collections::VecDeque;
 
@@ -20,10 +21,12 @@ type Extractor = dyn Fn(&Telemetry) -> f64 + Send;
 
 enum StateUpdate {
     AddMeasurement(Telemetry),
+    WindowVisible(bool),
 }
 
 pub struct PlotStateTracker {
     sender: Sender<StateUpdate>,
+    is_visible: bool,
 }
 
 struct Plot {
@@ -59,7 +62,10 @@ impl<'a> PlotOverlay {
                 ],
                 receiver,
             },
-            PlotStateTracker { sender },
+            PlotStateTracker {
+                sender,
+                is_visible: false,
+            },
         )
     }
 }
@@ -111,7 +117,14 @@ impl StateTracker for PlotStateTracker {
     async fn process(&mut self, update: &Update) {
         match update {
             Update::Telemetry(new_state) => {
-                self.sender.send(StateUpdate::AddMeasurement(new_state.clone())).await.unwrap();
+                let measurement_sender = self.sender.send(StateUpdate::AddMeasurement(new_state.clone()));
+
+                if self.is_visible != new_state.is_on_track {
+                    self.sender.send(StateUpdate::WindowVisible(new_state.is_on_track)).await.unwrap();
+                    self.is_visible = new_state.is_on_track;
+                }
+                
+                measurement_sender.await.unwrap();
             },
             _ => (),
         }
@@ -119,7 +132,7 @@ impl StateTracker for PlotStateTracker {
 }
 
 impl StateUpdater for PlotOverlay {
-    fn set_state(&mut self) {
+    fn set_state(&mut self, window: &Window) {
         if let Ok(update) = self.receiver.try_recv() {
             let now = Instant::now();
             for plot in &mut self.plots {
@@ -140,6 +153,7 @@ impl StateUpdater for PlotOverlay {
                         });
                     }
                 },
+                StateUpdate::WindowVisible(visible) => window.set_visible(visible),
                 _ => ()
             }
         }

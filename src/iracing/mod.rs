@@ -21,6 +21,7 @@ pub struct Telemetry {
     pub velocity: f32,
     pub deltas: Vec<f32>,
     pub positions: Vec<f32>,
+    pub is_on_track: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

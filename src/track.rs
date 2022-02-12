@@ -8,6 +8,7 @@ use skulpin::skia_safe::Point;
 use skulpin::skia_safe::Path;
 
 use skulpin::skia_safe::ContourMeasureIter;
+use skulpin::winit::window::Window;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
 use crate::iracing::{ Update, TrackSpec };
@@ -24,15 +25,21 @@ pub struct State {
     track: Option<Track>,
 }
 
+enum StateUpdate {
+    UpdateState(State),
+    WindowVisible(bool),
+}
+
 pub struct TrackOverlay {
     state: State,
-    receiver: Receiver<State>,
+    receiver: Receiver<StateUpdate>,
 }
 
 pub struct TrackOverlayState {
     current_state: State,
     last_seen_track: Option<TrackSpec>,
-    sender: Sender<State>
+    sender: Sender<StateUpdate>,
+    is_on_track: bool,
 }
 
 impl TrackOverlay {
@@ -52,6 +59,7 @@ impl TrackOverlay {
                 sender,
                 current_state: start_state,
                 last_seen_track: None,
+                is_on_track: false,
             }
         )
     }
@@ -139,6 +147,11 @@ impl StateTracker for TrackOverlayState {
         match update {
             Update::Telemetry(telemetry) => {
                 new_state.positions = telemetry.positions.clone();
+
+                if telemetry.is_on_track != self.is_on_track {
+                    self.sender.send(StateUpdate::WindowVisible(telemetry.is_on_track)).await.unwrap();
+                    self.is_on_track = telemetry.is_on_track;
+                }
             },
             Update::Session(session_info) => {
                 let track_info_clone = Some(session_info.track.clone());
@@ -153,14 +166,17 @@ impl StateTracker for TrackOverlayState {
         }
 
         self.current_state = new_state.clone();
-        self.sender.send(new_state).await.unwrap();
+        self.sender.send(StateUpdate::UpdateState(new_state)).await.unwrap();
     }
 }
 
 impl StateUpdater for TrackOverlay {
-    fn set_state(&mut self) {
-        if let Ok(new_state) = self.receiver.try_recv() {
-            self.state = new_state;
+    fn set_state(&mut self, window: &Window) {
+        if let Ok(update) = self.receiver.try_recv() {
+            match update {
+                StateUpdate::UpdateState(new_state) => self.state = new_state,
+                StateUpdate::WindowVisible(visible) => window.set_visible(visible),
+            }
         }
     }
 }
