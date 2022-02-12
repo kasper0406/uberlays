@@ -1,5 +1,12 @@
 # Changelog
 
+### [0.1.1](https://github.com/kasper0406/uberlays/compare/v0.1.0...v0.1.1) (2022-02-12)
+
+
+### Bug Fixes
+
+* Attach compile distribution as an asset to the release ([#11](https://github.com/kasper0406/uberlays/issues/11)) ([388c40a](https://github.com/kasper0406/uberlays/commit/388c40ab6ca1cf36861558d8070f2d4ad9fbcdb1))
+
 ## 0.1.0 (2022-02-11)
 
 
