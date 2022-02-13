@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/kasper0406/uberlays/compare/v0.1.1...v0.2.0) (2022-02-13)
+
+
+### Features
+
+* Use different colors on track overlay depending on car positions ([#16](https://github.com/kasper0406/uberlays/issues/16)) ([56f3230](https://github.com/kasper0406/uberlays/commit/56f3230f5f3ad7bca78caa9f46b33ff16968216b))
+
+
+### Bug Fixes
+
+* Connecting to the initial iRacing session is now working ([#14](https://github.com/kasper0406/uberlays/issues/14)) ([6ce191d](https://github.com/kasper0406/uberlays/commit/6ce191db940518adb0516637ca7c696c0e467c03))
+
 ### [0.1.1](https://github.com/kasper0406/uberlays/compare/v0.1.0...v0.1.1) (2022-02-12)
 
 
