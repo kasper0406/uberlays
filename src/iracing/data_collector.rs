@@ -181,6 +181,13 @@ impl Stream for IracingConnection {
                 debug!["Updating session info at tick {}", self.session_info_seen_tick_count];
 
                 let len = (*self.header).sessionInfoLen as usize;
+                if len == 0 {
+                    // If the Session Info provided is empty, it seems like iRacing will continue to keep
+                    // the session open, despite writing the actual data to another session. Instead we will
+                    // close the connection, and make the code open a new one, to connect to the new session
+                    return Poll::Ready(None);
+                }
+
                 let offset = (*self.header).sessionInfoOffset as isize;
                 let mut buffer = vec![0u8; len];
 
@@ -259,7 +266,7 @@ impl Stream for IracingConnection {
                             }
                             IracingValue::FloatVector(values)
                         },
-                        (irsdk_bool, 1) => IracingValue::Boolean(*(value_ptr as *const u8) != 0),
+                        (irsdk_VarType_irsdk_bool, 1) => IracingValue::Boolean(*(value_ptr as *const u8) != 0),
                         _ => IracingValue::Unknown
                     };
 

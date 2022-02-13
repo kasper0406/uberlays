@@ -123,7 +123,7 @@ impl StateTracker for PlotStateTracker {
                     self.sender.send(StateUpdate::WindowVisible(new_state.is_on_track)).await.unwrap();
                     self.is_visible = new_state.is_on_track;
                 }
-                
+
                 measurement_sender.await.unwrap();
             },
             _ => (),
