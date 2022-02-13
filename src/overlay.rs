@@ -81,6 +81,13 @@ impl Overlays {
             ];
 
             while let Ok(update) = state_receiver.recv().await {
+                if let Update::Telemetry(telemetry) = &update {
+                    let delay = telemetry.timestamp.elapsed().as_millis();
+                    if delay > (10 as u128) {
+                        warn!["Slow data processing. Delay: {}", delay];
+                    }
+                }
+
                 let arc_update = Arc::new(update);
                 let mut tasks = Vec::with_capacity(state_trackers.len());
 

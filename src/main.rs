@@ -15,7 +15,7 @@ use windows::{
 
 
 
-use std::time::{ Instant };
+use std::time::{ Instant, Duration };
 
 use async_std::task;
 use async_std::stream::StreamExt;
@@ -88,7 +88,7 @@ fn main() {
                     },
                     Err(IracingConnectionError::NotRunning) => {
                         info!("iRacing not detected. Retrying!");
-                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        std::thread::sleep(Duration::from_secs(1));
                     }
                 }
             }
@@ -159,6 +159,9 @@ fn main() {
                     }
                 }
             }
+
+            // iRacing disconnected, wait 1 seconds before attempting to re-connect
+            std::thread::sleep(Duration::from_secs(1));
         }
     });
 
