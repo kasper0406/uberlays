@@ -1,11 +1,10 @@
 use async_std::channel;
 use async_std::channel::{ Sender, Receiver };
 
-
-
 use skulpin::skia_safe;
 use skulpin::skia_safe::Point;
 use skulpin::skia_safe::Path;
+use skulpin::skia_safe::Paint;
 
 use skulpin::skia_safe::ContourMeasureIter;
 use skulpin::winit::window::Window;
@@ -21,7 +20,9 @@ use async_trait::async_trait;
 
 #[derive(Clone)]
 pub struct State {
-    positions: Vec<f32>,
+    cars_lap_dist: Vec<f32>,
+    cars_position: Vec<i32>,
+    driver_idx: usize,
     track: Option<Track>,
 }
 
@@ -33,6 +34,10 @@ enum StateUpdate {
 pub struct TrackOverlay {
     state: State,
     receiver: Receiver<StateUpdate>,
+
+    paint_cars_front: Paint,
+    paint_current_driver: Paint,
+    paint_cars_behind: Paint,
 }
 
 pub struct TrackOverlayState {
@@ -46,7 +51,9 @@ impl TrackOverlay {
     pub fn new() -> (TrackOverlay, TrackOverlayState) {
         let (sender, receiver) = channel::unbounded();
         let start_state = State {
-            positions: vec![],
+            cars_lap_dist: vec![],
+            cars_position: vec![],
+            driver_idx: 0,
             track: None,
         };
 
@@ -54,6 +61,10 @@ impl TrackOverlay {
             TrackOverlay {
                 state: start_state.clone(),
                 receiver,
+
+                paint_cars_front: Paint::new(skia_safe::Color4f::new(1.0, 0.2, 0.2, 1.0), None),
+                paint_current_driver: Paint::new(skia_safe::Color4f::new(0.9, 0.9, 0.2, 1.0), None),
+                paint_cars_behind: Paint::new(skia_safe::Color4f::new(0.2, 0.2, 1.0, 1.0), None),
             },
             TrackOverlayState {
                 sender,
@@ -86,7 +97,7 @@ impl Drawable for TrackOverlay {
     fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
         canvas.clear(skia_safe::Color::from_argb(0, 0, 0, 0));
 
-        let mut track_paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.5, 0.5, 0.5, 0.8), None);
+        let mut track_paint = Paint::new(skia_safe::Color4f::new(0.5, 0.5, 0.5, 0.8), None);
         track_paint.set_anti_alias(true);
         track_paint.set_style(skia_safe::paint::Style::Stroke);
         track_paint.set_stroke_width(7.0);
@@ -96,6 +107,7 @@ impl Drawable for TrackOverlay {
                 return;
             }
 
+            // Draw the track outline
             let mut path = Path::new();
             let mut prev_point = &track.curve[0];
 
@@ -124,14 +136,21 @@ impl Drawable for TrackOverlay {
             }
             canvas.draw_path(&path, &track_paint);
 
+            // Draw cars on track
             let mut measures = ContourMeasureIter::from_path(&path, false, 1.0);
             if let Some(measure) = measures.next() {
                 let length = measure.length();
 
-                for position in &self.state.positions {
-                    if let Some((point, _tangent)) = measure.pos_tan((1.0 - position) * length) {
-                        let mut car_paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.2, 0.2, 1.0, 1.0), None);
-                        car_paint.set_anti_alias(true);
+                for (car_idx, car_dist) in self.state.cars_lap_dist.iter().enumerate() {
+                    if let Some((point, _tangent)) = measure.pos_tan((1.0 - car_dist) * length) {
+                        let car_paint = if car_idx == self.state.driver_idx {
+                            &self.paint_current_driver
+                        } else if self.state.cars_position[car_idx] < self.state.cars_position[self.state.driver_idx] {
+                            &self.paint_cars_front
+                        } else {
+                            &self.paint_cars_behind
+                        };
+
                         canvas.draw_circle(point, 4.0, &car_paint);
                     }
                 }
@@ -146,7 +165,8 @@ impl StateTracker for TrackOverlayState {
         let mut new_state = self.current_state.clone();
         match update {
             Update::Telemetry(telemetry) => {
-                new_state.positions = telemetry.positions.clone();
+                new_state.cars_lap_dist = telemetry.lap_dist_by_car.clone();
+                new_state.cars_position = telemetry.car_positions.clone();
 
                 if telemetry.is_on_track != self.is_on_track {
                     self.sender.send(StateUpdate::WindowVisible(telemetry.is_on_track)).await.unwrap();
@@ -162,6 +182,8 @@ impl StateTracker for TrackOverlayState {
                         Err(err) => error!["Failed to load track: {}", err],
                     }
                 }
+
+                new_state.driver_idx = session_info.driver.car_idx;
             }
         }
 

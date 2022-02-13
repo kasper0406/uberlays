@@ -21,7 +21,7 @@ use async_std::task;
 use async_std::stream::StreamExt;
 
 use overlay::Overlays;
-use iracing::{ Update, Telemetry, SessionInfo, TrackSpec };
+use iracing::{ Update, Telemetry, SessionInfo, TrackSpec, DriverInfo };
 
 use iracing::data_collector;
 use iracing::data_collector::IracingConnection;
@@ -53,8 +53,14 @@ fn main() {
     let data_producer = task::spawn(async move {
         sender.send(Update::Session(SessionInfo {
             track: TrackSpec {
-                name: "monza gp".to_string(),
+                name: "monza full".to_string(),
                 configuration: "Grand Prix".to_string(),
+            },
+            driver: DriverInfo {
+                car_idx: 1,
+                username: "Test Driver".to_string(),
+                irating: 1,
+                license_string: "R 0.01".to_string(),
             }
         })).await.unwrap();
 
@@ -70,7 +76,9 @@ fn main() {
                 gear: 1,
                 velocity: 0.0,
                 deltas: vec![0.364, 14.340, -2.423, -23.42],
-                positions: vec![position],
+                lap_dist_by_car: vec![0.0, position, 0.75],
+                car_positions: vec![0, 1, 2],
+                is_on_track: true,
             })).await.unwrap();
 
             std::thread::sleep(std::time::Duration::from_millis(50));
@@ -102,8 +110,10 @@ fn main() {
                     .find(|(_, header)| header.name == "Throttle");
             let brake_header = headers.iter().enumerate()
                     .find(|(_, header)| header.name == "Brake");
-            let positions_header = headers.iter().enumerate()
+            let lap_dist_by_car_header = headers.iter().enumerate()
                     .find(|(_, header)| header.name == "CarIdxLapDistPct");
+            let car_positions_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "CarIdxPosition");
             let is_on_track_header = headers.iter().enumerate()
                     .find(|(_, header)| header.name == "IsOnTrack");
 
@@ -124,8 +134,12 @@ fn main() {
                             IracingValue::Float(brake) => *brake,
                             _ => 0.0
                         }));
-                        let positions = extract_value(&telemetry, positions_header, Box::new(|val| match val {
-                            IracingValue::FloatVector(positions) => positions.clone(),
+                        let lap_dist_by_car = extract_value(&telemetry, lap_dist_by_car_header, Box::new(|val| match val {
+                            IracingValue::FloatVector(lap_dist_by_car) => lap_dist_by_car.clone(),
+                            _ => vec![]
+                        }));
+                        let car_positions = extract_value(&telemetry, car_positions_header, Box::new(|val| match val {
+                            IracingValue::IntVector(car_positions) => car_positions.clone(),
                             _ => vec![]
                         }));
 
@@ -142,7 +156,8 @@ fn main() {
                             gear: 1,
                             velocity: 0.0,
                             deltas: vec![],
-                            positions,
+                            lap_dist_by_car,
+                            car_positions,
                             is_on_track,
                         })).await.unwrap();
                     },

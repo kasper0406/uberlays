@@ -20,7 +20,8 @@ pub struct Telemetry {
     pub gear: u16,
     pub velocity: f32,
     pub deltas: Vec<f32>,
-    pub positions: Vec<f32>,
+    pub lap_dist_by_car: Vec<f32>,
+    pub car_positions: Vec<i32>,
     pub is_on_track: bool,
 }
 
@@ -31,11 +32,20 @@ pub struct TrackSpec {
 }
 
 #[derive(Debug, Clone)]
+pub struct DriverInfo {
+    pub car_idx: usize,
+    pub username: String,
+    pub irating: i32,
+    pub license_string: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct SessionInfo {
     // pub name: String,
     // pub drivers: Vec<Driver>,
 
     pub track: TrackSpec,
+    pub driver: DriverInfo,
 }
 
 impl TryFrom<&String> for SessionInfo {
@@ -57,11 +67,30 @@ impl TryFrom<&String> for SessionInfo {
             _ => Err("Unspecified track configuration!")
         }?;
 
+        let driver_idx = parsed["DriverInfo"]["DriverCarIdx"].as_i64()
+                .ok_or("Failed to find driver index")?;
+        let driver = match &parsed["DriverInfo"]["Drivers"] {
+            Yaml::Array(drivers) => {
+                drivers.iter()
+                    .find(|driver| driver["CarIdx"].as_i64().unwrap() == driver_idx)
+                    .ok_or("Did not find current driver in drivers list")
+            },
+            _ => Err("Did not find list of drivers"),
+        }?;
+
+        let driver = DriverInfo {
+            car_idx: driver["CarIdx"].as_i64().unwrap() as usize,
+            username: driver["UserName"].as_str().unwrap().to_string(),
+            irating: driver["IRating"].as_i64().unwrap() as i32,
+            license_string: driver["LicString"].as_str().unwrap().to_string(),
+        };
+
         Ok(SessionInfo {
             track: TrackSpec {
                 name: track_name.to_string(),
                 configuration: track_configuration.to_string(),
-            }
+            },
+            driver,
         })
     }
 }
