@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/kasper0406/uberlays/compare/v0.2.0...v0.3.0) (2022-02-15)
+
+
+### Features
+
+* Add Montreal as a track to the track overlay ([#17](https://github.com/kasper0406/uberlays/issues/17)) ([ffbfb0f](https://github.com/kasper0406/uberlays/commit/ffbfb0f8ba083168786c448b67449a5647af04e5))
+
 ## [0.2.0](https://github.com/kasper0406/uberlays/compare/v0.1.1...v0.2.0) (2022-02-13)
 
 
