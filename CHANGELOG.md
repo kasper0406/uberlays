@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/kasper0406/uberlays/compare/v0.3.0...v0.4.0) (2022-02-27)
+
+
+### Features
+
+* Added Nurburgring track ([#19](https://github.com/kasper0406/uberlays/issues/19)) ([e0074f4](https://github.com/kasper0406/uberlays/commit/e0074f4c739bc6877bf8441f5f35bca11d6a13be))
+
 ## [0.3.0](https://github.com/kasper0406/uberlays/compare/v0.2.0...v0.3.0) (2022-02-15)
 
 
