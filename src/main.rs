@@ -49,7 +49,6 @@ fn main() {
 
     let (sender, receiver) = async_std::channel::unbounded();
 
-    /*
     let data_producer = task::spawn(async move {
         sender.send(Update::Session(SessionInfo {
             track: TrackSpec {
@@ -83,8 +82,9 @@ fn main() {
 
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
-    }); */
+    });
 
+    /*
     let data_producer = task::spawn(async move {
         loop {
             let mut maybe_connection: Option<IracingConnection> = None;
@@ -178,7 +178,7 @@ fn main() {
             // iRacing disconnected, wait 1 seconds before attempting to re-connect
             std::thread::sleep(Duration::from_secs(1));
         }
-    });
+    }); */
 
     let overlays = Overlays::new(receiver);
     overlays.start_event_loop();
