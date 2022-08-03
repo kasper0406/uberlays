@@ -49,7 +49,6 @@ pub struct OverlayImpl<'a> {
 pub struct Overlays {
     windows: Vec<Window>,
     event_loop: EventLoop<()>,
-    // overlays: HashMap<WindowId, OverlayImpl<'a>>,
     overlays: Vec<Box<dyn Overlay>>,
     state_updater: async_std::task::JoinHandle<()>,
 }
@@ -110,20 +109,6 @@ impl Overlays {
                 create_window(&event_loop, &window_spec.title, window_spec.width, window_spec.height)
             })
             .collect();
-
-        /*
-        let windows: Vec<_> = window_map.values().map(|(window, _)| window).collect();
-        let static_resources = skia_vulkan::StaticWindowsResources::construct(&vulkan, &windows);
-
-        let overlay_map: HashMap<_, _> = window_map.iter()
-            .map(|(window_id, (window, overlay))| (*window_id, OverlayImpl::new(overlay.clone(), &static_resources, &window)))
-            .collect(); */
-        
-            /*
-        let foo = static_resources.clone();
-        let overlay_map: HashMap<_, _> = std::iter::zip(windows.iter(), overlays.into_iter())
-            .map(move |(window, overlay)| (window.id(), OverlayImpl::new(overlay.clone(), &foo, window)))
-            .collect(); */
 
         Overlays {
             windows,
