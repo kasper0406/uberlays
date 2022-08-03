@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/kasper0406/uberlays/compare/v0.4.0...v0.5.0) (2022-08-03)
+
+
+### Features
+
+* Switch to light-weight Skia Vulkan wrapper making drawing a lot prettier ([#21](https://github.com/kasper0406/uberlays/issues/21)) ([0662d89](https://github.com/kasper0406/uberlays/commit/0662d8932931cf030b01a533ead01ed8c4c2d3b9))
+
 ## [0.4.0](https://github.com/kasper0406/uberlays/compare/v0.3.0...v0.4.0) (2022-02-27)
 
 
