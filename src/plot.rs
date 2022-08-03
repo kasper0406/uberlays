@@ -1,10 +1,10 @@
 use async_std::channel;
 use async_std::channel::{ Sender, Receiver };
-use skulpin::winit::window::Window;
+use skia_vulkan::winit::window::Window;
 use std::time::{ Duration, Instant };
 use std::collections::VecDeque;
 
-use skulpin::skia_safe;
+use skia_vulkan::skia_safe;
 
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
@@ -81,7 +81,9 @@ impl Overlay for PlotOverlay {
 }
 
 impl Drawable for PlotOverlay {
-    fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
+    fn draw(&mut self, canvas: &mut skia_safe::Canvas, window_size: (u32, u32)) {
+        let (width, height) = window_size;
+
         let margin = 2;
         canvas.clear(skia_safe::Color::from_argb(100, 255, 255, 255));
 
@@ -98,8 +100,8 @@ impl Drawable for PlotOverlay {
                     continue;
                 }
 
-                let x = ((self.duration - now.duration_since(point.time)).as_secs_f32() / self.duration.as_secs_f32()) * (coord.window_logical_size().width as f32);
-                let y = (1f32 - (point.value as f32)) * ((coord.window_logical_size().height - (2 * margin)) as f32) + (margin as f32);
+                let x = ((self.duration - now.duration_since(point.time)).as_secs_f32() / self.duration.as_secs_f32()) * (width as f32);
+                let y = (1f32 - (point.value as f32)) * ((height - (2 * margin)) as f32) + (margin as f32);
                 let skia_point = skia_safe::Point::new(x, y);
 
                 if let Some(prev_skia_point) = prev_point {

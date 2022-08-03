@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 
-
 use async_std::channel::{ Receiver };
 use async_std::sync::Arc;
 use async_std::sync::Mutex;
 
-use skulpin::skia_safe;
-use skulpin::{CoordinateSystemHelper};
-use skulpin::winit;
-use skulpin::rafx::api::RafxExtents2D;
+use skia_vulkan::skia_safe;
+use skia_vulkan::winit;
 
 use winit::event::Event::WindowEvent;
 use winit::event::WindowEvent::MouseInput;
@@ -16,6 +13,7 @@ use winit::event::MouseButton;
 use winit::window::Window;
 use winit::window::WindowId;
 use winit::event_loop::EventLoop;
+use winit::platform::run_return::EventLoopExtRunReturn;
 
 use crate::iracing::Update;
 use crate::plot::PlotOverlay;
@@ -25,7 +23,7 @@ use crate::track::TrackOverlay;
 use async_trait::async_trait;
 
 pub trait Drawable {
-    fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &CoordinateSystemHelper);
+    fn draw(&mut self, canvas: &mut skia_safe::Canvas, window_size: (u32, u32));
 }
 
 pub trait StateUpdater {
@@ -42,15 +40,16 @@ pub trait Overlay: Drawable + StateUpdater {
     fn window_spec(&self) -> WindowSpec;
 } 
 
-pub struct OverlayImpl {
+pub struct OverlayImpl<'a> {
     pub overlay: Box<dyn Overlay>,
-    renderer: skulpin::Renderer,
-    window: Window,
+    renderer: skia_vulkan::WindowRenderer<'a>,
+    window: &'a Window,
 }
 
 pub struct Overlays {
+    windows: Vec<Window>,
     event_loop: EventLoop<()>,
-    overlays: HashMap<WindowId, OverlayImpl>,
+    overlays: Vec<Box<dyn Overlay>>,
     state_updater: async_std::task::JoinHandle<()>,
 }
 
@@ -66,12 +65,6 @@ impl Overlays {
         let (plot_overlay, plot_overlay_state) = PlotOverlay::new();
         let (track_overlay, track_overlay_state) = TrackOverlay::new();
         // let (head2head_overlay, head2head_overlay_state) = Head2HeadOverlay::new();
-
-        let overlays: Vec<Box<dyn Overlay>> = vec![
-            Box::new(plot_overlay),
-            Box::new(track_overlay),
-            // Box::new(head2head_overlay),
-        ];
 
         let state_updater = async_std::task::spawn(async move {
             let mut state_trackers: Vec<Arc<Mutex<dyn StateTracker + Send + Sync>>> = vec![
@@ -105,26 +98,34 @@ impl Overlays {
             }
         });
 
-        let window_map: HashMap<_, _> = overlays.into_iter()
+        let overlays: Vec<Box<dyn Overlay>> = vec![
+            Box::new(plot_overlay),
+            Box::new(track_overlay),
+            // Box::new(head2head_overlay),
+        ];
+        let windows: Vec<_> = overlays.iter()
             .map(|overlay| {
                 let window_spec = overlay.window_spec();
-                let overlay_impl = OverlayImpl::new(&event_loop, &window_spec.title, window_spec.width, window_spec.height, overlay);
-                (
-                    overlay_impl.window.id(),
-                    overlay_impl
-                )
+                create_window(&event_loop, &window_spec.title, window_spec.width, window_spec.height)
             })
             .collect();
 
         Overlays {
+            windows,
             event_loop,
-            overlays: window_map,
+            overlays,
             state_updater,
         }
     }
 
     pub fn start_event_loop(mut self) {
-        self.event_loop.run(move |event, _window, control_flow| {
+        let vulkan = skia_vulkan::VulkanInstance::new();
+        let static_resources = skia_vulkan::StaticWindowsResources::construct(&vulkan, &self.windows);
+        let mut overlay_map: HashMap<_, _> = std::iter::zip(self.windows.iter(), self.overlays.into_iter())
+            .map(|(window, overlay)| (window.id(), OverlayImpl::new(overlay, &static_resources, window)))
+            .collect();
+
+        self.event_loop.run_return(move |event, _window, control_flow| {
             match event {
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::CloseRequested,
@@ -132,34 +133,26 @@ impl Overlays {
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
 
                 winit::event::Event::MainEventsCleared => {
-                    for (_window_id, overlay) in &mut self.overlays {
+                    for (_window_id, overlay) in &mut overlay_map {
                         overlay.overlay.set_state(&overlay.window);
                         overlay.window.request_redraw();
                     }
                 },
 
                 winit::event::Event::RedrawRequested(window_id) => {
-                    if let Some(overlay) = self.overlays.get_mut(&window_id) {
+                    if let Some(overlay) = overlay_map.get_mut(&window_id) {
                         let window_size = overlay.window.inner_size();
-                        let window_extents = RafxExtents2D {
-                            width: window_size.width,
-                            height: window_size.height,
-                        };
-                        let scale_factor = overlay.window.scale_factor();
 
-                        if let Err(e) = overlay.renderer.draw(window_extents, scale_factor, |canvas, coordinate_system_helper| {
-                            overlay.overlay.draw(canvas, &coordinate_system_helper);
-                        }) {
-                            error!("Error during draw: {:?}", e);
-                            *control_flow = winit::event_loop::ControlFlow::Exit
-                        }
+                        overlay.renderer.draw(window_size.into(), &mut |canvas| {
+                            overlay.overlay.draw(canvas, window_size.into());
+                        })
                     } else {
                         error!("Unknown window with id {:?}", window_id);
                     }
                 },
 
                 WindowEvent { window_id, event: MouseInput { button: MouseButton::Left, .. }, .. } => {
-                    if let Some(overlay) = self.overlays.get(&window_id) {
+                    if let Some(overlay) = overlay_map.get(&window_id) {
                         overlay.window.drag_window().expect("Failed to drag window");
                     }
                 },
@@ -170,30 +163,24 @@ impl Overlays {
     }
 }
 
-impl OverlayImpl {
-    pub fn new(event_loop: &EventLoop<()>, name: &str, width: f32, height: f32, overlay: Box<dyn Overlay>) -> OverlayImpl {
-        let logical_size = winit::dpi::LogicalSize::new(width, height);
-        let window = winit::window::WindowBuilder::new()
-            .with_title(name)
-            .with_inner_size(logical_size)
-            .with_decorations(false)
-            .with_always_on_top(true)
-            .with_transparent(true)
-            .with_resizable(true)
-            .with_visible(false)
-            .build(event_loop)
-            .expect("Failed to create overlay window");
+fn create_window(event_loop: &EventLoop<()>, name: &str, width: f32, height: f32) -> Window {
+    let logical_size = winit::dpi::LogicalSize::new(width, height);
+    
+    winit::window::WindowBuilder::new()
+        .with_title(name)
+        .with_inner_size(logical_size)
+        .with_decorations(false)
+        .with_always_on_top(true)
+        .with_transparent(true)
+        .with_resizable(true)
+        .with_visible(false)
+        .build(event_loop)
+        .expect("Failed to create overlay window")
+}
 
-        let window_size = window.inner_size();
-        let window_extents = RafxExtents2D {
-            width: window_size.width,
-            height: window_size.height,
-        };
-
-        let renderer = skulpin::RendererBuilder::new()
-            .coordinate_system(skulpin::CoordinateSystem::Logical)
-            .build(&window, window_extents)
-            .unwrap();
+impl<'a> OverlayImpl<'a> {
+    pub fn new(overlay: Box<dyn Overlay>, static_resources: &'a skia_vulkan::StaticWindowsResources, window: &'a Window) -> OverlayImpl<'a> {
+        let renderer = skia_vulkan::WindowRenderer::construct(&static_resources, &window);
 
         OverlayImpl {
             window,

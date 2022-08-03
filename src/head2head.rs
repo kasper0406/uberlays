@@ -1,5 +1,5 @@
-use skulpin::skia_safe;
-use skulpin::winit::window::Window;
+use skia_vulkan::skia_safe;
+use skia_vulkan::winit::window::Window;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
 use crate::iracing::{ Update };
@@ -47,7 +47,7 @@ impl Overlay for Head2HeadOverlay {
 }
 
 impl Drawable for Head2HeadOverlay {
-    fn draw(&mut self, canvas: &mut skia_safe::Canvas, _coord: &skulpin::CoordinateSystemHelper) {
+    fn draw(&mut self, canvas: &mut skia_safe::Canvas, _window_size: (u32, u32)) {
         canvas.clear(skia_safe::Color::from_argb(100, 100, 255, 255));
 
         let paint = skia_safe::Paint::new(skia_safe::Color4f::new(0.0, 0.0, 0.0, 1.0), None);

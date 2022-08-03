@@ -10,7 +10,7 @@ bindgen = "*"
 prost-build = "0.9"
 
 [dependencies]
-skulpin = { git = "https://github.com/aclysma/skulpin", default-features = false, features = ["winit-app", "winit-25"] }
+skia-vulkan = { git = "https://github.com/kasper0406/skia-vulkan-rust" }
 log = "0.4"
 env_logger = "0.6"
 async-std = { version = "1.10.0", features = [ "unstable" ] }

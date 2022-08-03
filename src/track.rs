@@ -1,13 +1,13 @@
 use async_std::channel;
 use async_std::channel::{ Sender, Receiver };
 
-use skulpin::skia_safe;
-use skulpin::skia_safe::Point;
-use skulpin::skia_safe::Path;
-use skulpin::skia_safe::Paint;
+use skia_vulkan::skia_safe;
+use skia_vulkan::skia_safe::Point;
+use skia_vulkan::skia_safe::Path;
+use skia_vulkan::skia_safe::Paint;
 
-use skulpin::skia_safe::ContourMeasureIter;
-use skulpin::winit::window::Window;
+use skia_vulkan::skia_safe::ContourMeasureIter;
+use skia_vulkan::winit::window::Window;
 
 use crate::overlay::{ Overlay, Drawable, StateUpdater, StateTracker, WindowSpec };
 use crate::iracing::{ Update, TrackSpec };
@@ -86,15 +86,14 @@ impl Overlay for TrackOverlay {
     }
 }
 
-fn scale(x: f64, coord: &skulpin::CoordinateSystemHelper) -> f32 {
+fn scale(x: f64, window_size: (u32, u32)) -> f32 {
     let scale = 0.95;
-    let logical_size = coord.window_logical_size();
-    let min_size = logical_size.width.min(logical_size.height) as f64;
+    let min_size = window_size.0.min(window_size.1) as f64;
     (x * min_size * scale + ((1.0 - scale) / 2.0) * min_size) as f32
 }
 
 impl Drawable for TrackOverlay {
-    fn draw(&mut self, canvas: &mut skia_safe::Canvas, coord: &skulpin::CoordinateSystemHelper) {
+    fn draw(&mut self, canvas: &mut skia_safe::Canvas, window_size: (u32, u32)) {
         canvas.clear(skia_safe::Color::from_argb(0, 0, 0, 0));
 
         let mut track_paint = Paint::new(skia_safe::Color4f::new(0.5, 0.5, 0.5, 0.8), None);
@@ -112,24 +111,24 @@ impl Drawable for TrackOverlay {
             let mut prev_point = &track.curve[0];
 
             path.move_to(Point::new(
-                scale(prev_point.control.as_ref().unwrap().x, coord),
-                scale(1.0 - prev_point.control.as_ref().unwrap().y, coord)));
+                scale(prev_point.control.as_ref().unwrap().x, window_size),
+                scale(1.0 - prev_point.control.as_ref().unwrap().y, window_size)));
             for i in 1..track.curve.len() {
                 let next_point = &track.curve[i];
 
                 // TODO(knielsen): Consider what to do if Bezier curve is written in the reverse direction
                 path.cubic_to(
                     Point::new(
-                        scale(prev_point.handle_right.as_ref().unwrap().x, coord),
-                        scale(1.0 - prev_point.handle_right.as_ref().unwrap().y, coord)
+                        scale(prev_point.handle_right.as_ref().unwrap().x, window_size),
+                        scale(1.0 - prev_point.handle_right.as_ref().unwrap().y, window_size)
                     ),
                     Point::new(
-                        scale(next_point.handle_left.as_ref().unwrap().x, coord),
-                        scale(1.0 - next_point.handle_left.as_ref().unwrap().y, coord)
+                        scale(next_point.handle_left.as_ref().unwrap().x, window_size),
+                        scale(1.0 - next_point.handle_left.as_ref().unwrap().y, window_size)
                     ),
                     Point::new(
-                        scale(next_point.control.as_ref().unwrap().x, coord),
-                        scale(1.0 - next_point.control.as_ref().unwrap().y, coord)
+                        scale(next_point.control.as_ref().unwrap().x, window_size),
+                        scale(1.0 - next_point.control.as_ref().unwrap().y, window_size)
                     ));
                 
                 prev_point = next_point;
