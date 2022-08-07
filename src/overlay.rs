@@ -180,7 +180,8 @@ fn create_window(event_loop: &EventLoop<()>, name: &str, width: f32, height: f32
 
 impl<'a> OverlayImpl<'a> {
     pub fn new(overlay: Box<dyn Overlay>, static_resources: &'a skia_vulkan::StaticWindowsResources, window: &'a Window) -> OverlayImpl<'a> {
-        let renderer = skia_vulkan::WindowRenderer::construct(&static_resources, &window);
+        let renderer_config = skia_vulkan::WindowRendererConfigBuilder::default().build().unwrap();
+        let renderer = skia_vulkan::WindowRenderer::construct(&static_resources, &window, renderer_config);
 
         OverlayImpl {
             window,

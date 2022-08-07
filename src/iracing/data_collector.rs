@@ -4,9 +4,9 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 
-
-
 use async_std::sync::Mutex;
+
+use windows::core::PCWSTR;
 use windows::{
     Win32::Foundation::*,
     Win32::System::Threading::*,
@@ -25,20 +25,20 @@ use async_std::pin::Pin;
 const SYNCHRONIZE: u32 = 0x00100000;
 // const FILE_MAP_READ: u32 = 0x4;
 
-struct PwString {
+struct PcwString {
     content: Vec<u16>,
 }
 
-impl PwString {
-    fn from(input: &str) -> PwString {
+impl PcwString {
+    fn from(input: &str) -> PcwString {
         let mut copy: Vec<u16> = OsStr::new(input).encode_wide().chain(Some(0)).collect();
         copy.push(0x0); // Null terminate string
 
-        PwString { content: copy }
+        PcwString { content: copy }
     }
 
-    fn pwstr(&mut self) -> PWSTR {
-        PWSTR(self.content.as_mut_ptr())
+    fn pcwstr(&mut self) -> PCWSTR {
+        PCWSTR(self.content.as_mut_ptr())
     }
 }
 
@@ -95,10 +95,10 @@ pub enum IracingConnectionError {
 
 impl IracingConnection {
     pub fn new() -> Result<IracingConnection, IracingConnectionError> {
-        let mut mmap_filename = PwString::from("Local\\IRSDKMemMapFileName");
-        let mut event_filename = PwString::from("Local\\IRSDKDataValidEvent");
+        let mut mmap_filename = PcwString::from("Local\\IRSDKMemMapFileName");
+        let mut event_filename = PcwString::from("Local\\IRSDKDataValidEvent");
 
-        let mem_file = unsafe { OpenFileMappingW(FILE_MAP_READ.0, false, mmap_filename.pwstr()) };
+        let mem_file = unsafe { OpenFileMappingW(FILE_MAP_READ.0, false, mmap_filename.pcwstr()) }.unwrap();
         drop(mmap_filename);
 
         info!("Mmap file: {:?}, error: {:?}", mem_file, unsafe { GetLastError() });
@@ -113,7 +113,7 @@ impl IracingConnection {
 
         let header = mmap as *mut irsdk_header;
 
-        let event_file = unsafe { OpenEventW(SYNCHRONIZE, false, event_filename.pwstr()) };
+        let event_file = unsafe { OpenEventW(SYNCHRONIZE, false, event_filename.pcwstr()) }.unwrap();
         drop(event_filename);
         info!("Event handle: {:?}, error: {:?}", event_file, unsafe { GetLastError() });
 
