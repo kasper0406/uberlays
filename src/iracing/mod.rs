@@ -1,6 +1,7 @@
 use yaml_rust::{YamlLoader, Yaml};
 
-pub mod data_collector;
+mod data_collector;
+pub mod data_producer;
 
 use std::time::Instant;
 use std::convert::TryFrom;
