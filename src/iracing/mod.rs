@@ -24,6 +24,9 @@ pub struct Telemetry {
     pub lap_dist_by_car: Vec<f32>,
     pub car_positions: Vec<i32>,
     pub is_on_track: bool,
+    pub rr_temp_l: f32,
+    pub rr_temp_m: f32,
+    pub rr_temp_r: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -10,8 +10,7 @@ bindgen = "*"
 prost-build = "0.9"
 
 [dependencies]
-# skia-vulkan = { git = "https://github.com/kasper0406/skia-vulkan-rust", version = "1.0" }
-skia-vulkan = { path = "C:\\Users\\kaspe\\Development\\skia-vulkan-rust" }
+skia-vulkan = { git = "https://github.com/kasper0406/skia-vulkan-rust", version = "0.1" }
 log = "0.4"
 env_logger = "0.6"
 async-std = { version = "1.12.0", features = [ "unstable" ] }

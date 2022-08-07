@@ -16,7 +16,6 @@ use async_std::task;
 use overlay::Overlays;
 
 fn main() {
-    // Setup logging
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Debug)
         .init();
@@ -27,8 +26,8 @@ fn main() {
 
     let (sender, receiver) = async_std::channel::unbounded();
 
-    let data_producer = iracing::data_producer::TestTask::new(sender);
-    // let data_producer = iracing::data_producer::IracingTask::new(sender);
+    // let data_producer = iracing::data_producer::TestTask::new(sender);
+    let data_producer = iracing::data_producer::IracingTask::new(sender);
     let data_producer_thread = task::spawn(async {
         data_producer.execute().await
     });

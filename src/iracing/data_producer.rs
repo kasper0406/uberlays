@@ -60,6 +60,22 @@ impl IracingTask {
             let is_on_track_header = headers.iter().enumerate()
                     .find(|(_, header)| header.name == "IsOnTrack");
 
+            /*
+            let rr_temp_l_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "RRtempL");
+            let rr_temp_m_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "RRtempM");
+            let rr_temp_r_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "RRtempR");
+            let rr_wear_l_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "RRwearL");
+            let rr_wear_m_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "RRwearM");
+            let rr_wear_r_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "RRwearR");
+            let rr_ride_height_header = headers.iter().enumerate()
+                    .find(|(_, header)| header.name == "RRrideHeight"); */
+
             let mut packages = 0;
             while let Some(package) = connection.next().await {
                 packages += 1;
@@ -102,6 +118,9 @@ impl IracingTask {
                             lap_dist_by_car,
                             car_positions,
                             is_on_track,
+                            rr_temp_l,
+                            rr_temp_m,
+                            rr_temp_r,
                         })).await.unwrap();
                     },
                     data_collector::Update::SessionInfo(session_info_str) => {
@@ -162,6 +181,9 @@ impl TestTask {
                 lap_dist_by_car: vec![0.0, position, 0.75],
                 car_positions: vec![0, 1, 2],
                 is_on_track: true,
+                rr_temp_l: 20.0,
+                rr_temp_m: 20.0,
+                rr_temp_r: 20.0,
             })).await.unwrap();
 
             std::thread::sleep(std::time::Duration::from_millis(50));

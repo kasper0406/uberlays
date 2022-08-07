@@ -1592,11 +1592,12 @@ dependencies = [
 [[package]]
 name = "skia-vulkan"
 version = "0.1.0"
+source = "git+https://github.com/kasper0406/skia-vulkan-rust#2574d188e2c0bb89ea2de7e12a7f2cc98c72013f"
 dependencies = [
  "ash",
  "ash-window",
  "derive_builder",
- "env_logger 0.9.0",
+ "env_logger 0.6.2",
  "itertools",
  "log",
  "skia-safe",
