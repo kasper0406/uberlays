@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/kasper0406/uberlays/compare/v0.5.0...v0.6.0) (2022-08-07)
+
+
+### Features
+
+* Move out iRacing producers and bump deps ([#23](https://github.com/kasper0406/uberlays/issues/23)) ([c6e92a8](https://github.com/kasper0406/uberlays/commit/c6e92a8bd0af00833b44bf1d6416051fa0cb1fcd))
+
 ## [0.5.0](https://github.com/kasper0406/uberlays/compare/v0.4.0...v0.5.0) (2022-08-03)
 
 
