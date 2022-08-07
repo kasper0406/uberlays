@@ -118,9 +118,6 @@ impl IracingTask {
                             lap_dist_by_car,
                             car_positions,
                             is_on_track,
-                            rr_temp_l,
-                            rr_temp_m,
-                            rr_temp_r,
                         })).await.unwrap();
                     },
                     data_collector::Update::SessionInfo(session_info_str) => {
@@ -181,9 +178,6 @@ impl TestTask {
                 lap_dist_by_car: vec![0.0, position, 0.75],
                 car_positions: vec![0, 1, 2],
                 is_on_track: true,
-                rr_temp_l: 20.0,
-                rr_temp_m: 20.0,
-                rr_temp_r: 20.0,
             })).await.unwrap();
 
             std::thread::sleep(std::time::Duration::from_millis(50));
